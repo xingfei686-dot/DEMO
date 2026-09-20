@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, CalendarDays, Check, ChevronRight, Compass, Heart, LogOut, Map, Minus, Navigation, Pencil, Plus, Search, Sparkles, Trash2, Users, WalletCards } from "lucide-react";
+import { ArrowRight, Bot, CalendarDays, Check, ChevronRight, Compass, Heart, LogOut, Map, MessageCircle, Minus, Navigation, Pencil, Plus, Search, Send, Sparkles, Trash2, Users, WalletCards, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 type Activity = { id: number; time: string; title: string; detail: string; cost: number };
 type Day = { day: number; title: string; activities: Activity[] };
 type Coordinates = { lat: number; lng: number };
+type ChatMessage = { role: "assistant" | "user"; text: string };
 
 const assetPath = (file: string) => `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/${file}`;
 
@@ -57,6 +58,10 @@ export default function Home() {
   const [startDate, setStartDate] = useState("2026-10-12");
   const [endDate, setEndDate] = useState("2026-10-14");
   const [travelers, setTravelers] = useState(2);
+  const [assistantOpen, setAssistantOpen] = useState(false);
+  const [assistantInput, setAssistantInput] = useState("");
+  const [assistantBusy, setAssistantBusy] = useState(false);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([{ role: "assistant", text: "你好，我是 Wander AI。可以问我目的地亮点、行程安排、预算或出行建议。" }]);
 
   useEffect(() => { setUser(localStorage.getItem("wander-user") || ""); setSaved(localStorage.getItem("wander-saved") === "true"); }, []);
   useEffect(() => { setDestinationText(plans[destination].city); }, [destination]);
@@ -72,13 +77,50 @@ export default function Home() {
   const validDates = Boolean(startDate && endDate && endDate >= startDate);
   const dateSummary = validDates ? `${formatTripDate(startDate)} – ${formatTripDate(endDate)} · ${travelers} 人` : "请选择有效日期";
 
-  function generatePlan() {
+  async function searchDestination(topic: string) {
+    const response = await fetch(`https://zh.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(topic)}&utf8=1&format=json&origin=*&srlimit=8`);
+    if (!response.ok) throw new Error("目的地资料暂时不可用");
+    const data = await response.json() as { query?: { search?: Array<{ title: string; snippet: string }> } };
+    return data.query?.search ?? [];
+  }
+  async function generatePlan() {
+    if (!tripCity.trim()) return;
     setGenerating(true);
-    window.setTimeout(() => {
-      setDays(selected.days.map((day) => ({ ...day, activities: day.activities.map((item) => ({ ...item })) })));
-      setActiveDay("1"); setGenerated(true); setGenerating(false);
+    try {
+      const results = await searchDestination(`${tripCity} 旅游 景点`);
+      const names = results.map((item) => item.title).filter((name) => !name.includes("列表")).slice(0, 6);
+      const fallback = ["城市地标与老城区", "当地市场与特色美食", "博物馆与文化街区", "自然景观与观景台", "社区漫步与咖啡时间", "夜景与在地晚餐"];
+      const spots = [...names, ...fallback].slice(0, 6);
+      const dailyCost = Math.max(200, Math.round(Number(budget || 0) / Math.max(travelers, 1) / 3));
+      const customDays: Day[] = [
+        { day: 1, title: "抵达与城市初见", activities: [{ id: 101, time: "10:00", title: spots[0], detail: `从 ${tripCity} 的代表性区域开始，熟悉城市节奏。`, cost: Math.round(dailyCost * .2) }, { id: 102, time: "14:30", title: spots[1], detail: query || "品尝当地风味，并留出自由探索时间。", cost: Math.round(dailyCost * .35) }, { id: 103, time: "19:00", title: "在地特色晚餐", detail: `根据当前 ¥${Number(budget || 0).toLocaleString()} 预算安排餐饮。`, cost: Math.round(dailyCost * .35) }] },
+        { day: 2, title: "文化与经典体验", activities: [{ id: 201, time: "09:00", title: spots[2], detail: "联网检索到的目的地相关文化景点，可继续编辑替换。", cost: Math.round(dailyCost * .25) }, { id: 202, time: "13:30", title: spots[3], detail: style === "relaxed" ? "安排充足休息，轻松游览。" : "串联周边景点，提高游览效率。", cost: Math.round(dailyCost * .3) }, { id: 203, time: "18:30", title: "日落与夜间体验", detail: `适合 ${travelers} 人共同体验的夜间安排。`, cost: Math.round(dailyCost * .3) }] },
+        { day: 3, title: "深入当地生活", activities: [{ id: 301, time: "09:30", title: spots[4], detail: "避开高峰时段，感受当地社区与生活方式。", cost: Math.round(dailyCost * .15) }, { id: 302, time: "14:00", title: spots[5], detail: "根据天气和现场开放情况灵活调整。", cost: Math.round(dailyCost * .25) }, { id: 303, time: "17:30", title: "返程前自由活动", detail: "预留交通与行李整理时间。", cost: Math.round(dailyCost * .15) }] },
+      ];
+      setDays(customDays); setActiveDay("1"); setGenerated(true);
       window.setTimeout(() => document.getElementById("planner")?.scrollIntoView({ behavior: "smooth" }), 80);
-    }, 850);
+    } catch {
+      setDays(selected.days.map((day) => ({ ...day, activities: day.activities.map((item) => ({ ...item, detail: `${tripCity}：${item.detail}` })) })));
+      setGenerated(true);
+    } finally { setGenerating(false); }
+  }
+  async function askAssistant() {
+    const question = assistantInput.trim();
+    if (!question || assistantBusy) return;
+    setAssistantInput(""); setAssistantBusy(true);
+    setChatMessages((items) => [...items, { role: "user", text: question }]);
+    let answer = "";
+    if (/预算|多少钱|费用/.test(question)) answer = `当前设置的总预算是 ¥${Number(budget || 0).toLocaleString()}，共 ${travelers} 人。建议预留约 15% 作为交通和临时支出。`;
+    else if (/日期|几号|时间|人数/.test(question)) answer = `当前行程为 ${dateSummary}，目的地是 ${tripCity}。`;
+    else if (/行程|安排|第.*天/.test(question) && generated) answer = days.map((day) => `第 ${day.day} 天：${day.activities.map((item) => item.title).join("、")}`).join("\n");
+    else {
+      try {
+        const results = await searchDestination(`${tripCity} ${question}`);
+        const clean = (value: string) => value.replace(/<[^>]+>/g, "").replace(/&quot;/g, "“").replace(/&amp;/g, "&");
+        answer = results.length ? `关于“${question}”，我查到：${results.slice(0, 3).map((item) => `${item.title}：${clean(item.snippet)}`).join("；")}。建议出发前再确认开放时间和实时政策。` : `暂时没有查到足够资料。你可以换一种问法，例如“${tripCity}有哪些必去景点？”`;
+      } catch { answer = "当前网络查询暂时不可用。我仍可以根据页面中的预算、日期和行程回答问题。"; }
+    }
+    setChatMessages((items) => [...items, { role: "assistant", text: answer }]); setAssistantBusy(false);
   }
   function updateActivity(dayNumber: number, id: number, value: string) { setDays((current) => current.map((day) => day.day === dayNumber ? { ...day, activities: day.activities.map((item) => item.id === id ? { ...item, title: value } : item) } : day)); }
   function removeActivity(dayNumber: number, id: number) { setDays((current) => current.map((day) => day.day === dayNumber ? { ...day, activities: day.activities.filter((item) => item.id !== id) } : day)); }
@@ -122,7 +164,7 @@ export default function Home() {
       <div className="relative w-full min-w-0 max-w-full overflow-hidden rounded-[26px] border border-white/25 bg-[linear-gradient(135deg,rgba(245,255,249,.23),rgba(221,244,232,.10))] p-5 text-white shadow-[0_32px_90px_rgba(0,18,12,.38),inset_0_1px_0_rgba(255,255,255,.32)] backdrop-blur-[28px] sm:rounded-[32px] sm:p-8"><div className="pointer-events-none absolute -right-16 -top-20 size-64 rounded-full bg-[#caff9d]/15 blur-3xl" /><div className="relative flex items-center justify-between gap-4"><div className="min-w-0"><p className="text-sm font-semibold uppercase tracking-[.2em] text-[#d4e8dc]">Plan a trip</p><h2 className="mt-2 text-2xl font-bold tracking-[-.035em] sm:text-3xl">创建我的旅行</h2></div><span className="grid size-11 shrink-0 place-items-center rounded-full bg-[#d8ff64] text-[#10231c] shadow-[0_10px_30px_rgba(195,255,100,.2)] sm:size-12"><Sparkles className="size-5" /></span></div>
         <div className="relative mt-8 grid w-full min-w-0 gap-x-6 gap-y-7 sm:grid-cols-2">
           <label className="min-w-0 text-sm font-medium text-white/72">目的地<input value={destinationText} list="destination-suggestions" onChange={(e) => { const value = e.target.value; setDestinationText(value); const preset = Object.entries(plans).find(([, item]) => value.trim() === item.city || value.trim() === `${item.city}，${item.country}`); if (preset) setDestination(preset[0]); }} placeholder="输入城市或地区" className="mt-1 h-12 w-full min-w-0 rounded-none border-x-0 border-t-0 border-b border-white/28 bg-transparent px-0 text-base text-white outline-none transition placeholder:text-white/40 focus:border-[#d8ff64]" /><datalist id="destination-suggestions"><option value="东京" /><option value="里斯本" /><option value="巴厘岛" /></datalist></label>
-          <label className="min-w-0 text-sm font-medium text-white/72">旅行预算<Select value={budget} onValueChange={setBudget}><SelectTrigger className="mt-1 h-12 w-full min-w-0 rounded-none border-x-0 border-t-0 border-b border-white/28 bg-transparent px-0 text-base text-white shadow-none focus-visible:ring-0"><span className="truncate">¥{Number(budget).toLocaleString()}</span></SelectTrigger><SelectContent><SelectItem value="5000">轻量预算 · ¥5,000</SelectItem><SelectItem value="8000">舒适体验 · ¥8,000</SelectItem><SelectItem value="12000">品质旅行 · ¥12,000</SelectItem><SelectItem value="20000">高端定制 · ¥20,000</SelectItem></SelectContent></Select></label>
+          <label className="min-w-0 text-sm font-medium text-white/72">旅行预算<div className="mt-1 flex h-12 items-center border-b border-white/28 text-base text-white focus-within:border-[#d8ff64]"><span className="mr-2 text-[#d8ff64]">¥</span><input value={budget} onChange={(e) => setBudget(e.target.value.replace(/\D/g, ""))} inputMode="numeric" placeholder="输入总预算" className="h-full w-full min-w-0 bg-transparent outline-none placeholder:text-white/40" /></div></label>
           <label className="min-w-0 text-sm font-medium text-white/72">旅行节奏<Select value={style} onValueChange={setStyle}><SelectTrigger className="mt-1 h-12 w-full min-w-0 rounded-none border-x-0 border-t-0 border-b border-white/28 bg-transparent px-0 text-base text-white shadow-none focus-visible:ring-0"><span className="truncate">{style === "relaxed" ? "松弛慢游" : style === "packed" ? "充实探索" : "张弛有度"}</span></SelectTrigger><SelectContent><SelectItem value="relaxed">松弛慢游</SelectItem><SelectItem value="balanced">张弛有度</SelectItem><SelectItem value="packed">充实探索</SelectItem></SelectContent></Select></label>
           <div className="min-w-0 text-sm font-medium text-white/72">日期与人数<Dialog open={dateOpen} onOpenChange={setDateOpen}><DialogTrigger asChild><button type="button" className="mt-1 flex h-12 w-full min-w-0 items-center gap-3 border-b border-white/28 bg-transparent px-0 text-left text-base text-white transition hover:border-[#d8ff64]"><CalendarDays className="size-4 shrink-0 text-[#d8ff64]" /><span className="truncate">{dateSummary}</span></button></DialogTrigger><DialogContent className="w-[calc(100%-2rem)] rounded-[24px] sm:max-w-md sm:rounded-[28px]"><DialogHeader><DialogTitle className="text-2xl">日期与旅行人数</DialogTitle><DialogDescription>选择出发、返程日期，以及同行人数。</DialogDescription></DialogHeader><div className="mt-3 grid gap-4 sm:grid-cols-2"><label className="text-sm font-medium">出发日期<input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="mt-2 h-12 w-full rounded-xl border border-[#dce2dc] bg-white px-3 text-base outline-none focus:border-[#173c32]" /></label><label className="text-sm font-medium">返程日期<input type="date" value={endDate} min={startDate} onChange={(e) => setEndDate(e.target.value)} className="mt-2 h-12 w-full rounded-xl border border-[#dce2dc] bg-white px-3 text-base outline-none focus:border-[#173c32]" /></label></div><div className="mt-2 flex items-center justify-between rounded-2xl bg-[#edf0e9] p-4"><div className="flex items-center gap-3"><span className="grid size-10 place-items-center rounded-full bg-white"><Users className="size-5 text-[#173c32]" /></span><div><p className="font-medium">旅行人数</p><p className="text-sm text-[#61716a]">最多 8 位旅客</p></div></div><div className="flex items-center gap-3"><button type="button" onClick={() => setTravelers((value) => Math.max(1, value - 1))} disabled={travelers === 1} className="grid size-9 place-items-center rounded-full border border-[#cfd7d1] bg-white disabled:opacity-35" aria-label="减少人数"><Minus className="size-4" /></button><strong className="w-5 text-center text-lg">{travelers}</strong><button type="button" onClick={() => setTravelers((value) => Math.min(8, value + 1))} disabled={travelers === 8} className="grid size-9 place-items-center rounded-full border border-[#cfd7d1] bg-white disabled:opacity-35" aria-label="增加人数"><Plus className="size-4" /></button></div></div>{!validDates && <p className="text-sm text-[#b74a38]">返程日期不能早于出发日期。</p>}<Button type="button" disabled={!validDates} onClick={() => setDateOpen(false)} className="mt-2 h-12 w-full rounded-xl bg-[#173c32] text-white">应用选择</Button></DialogContent></Dialog></div>
         </div>
@@ -138,6 +180,7 @@ export default function Home() {
 
     <section id="discover" className="bg-[#e2e6dd] px-5 py-20 sm:px-8 lg:px-12"><div className="mx-auto max-w-[1440px]"><div className="mb-9"><span className="text-sm font-semibold uppercase tracking-[.18em] text-[#60746b]">Quick inspiration</span><h2 className="mt-2 text-4xl font-semibold tracking-tight">换个目的地试试</h2></div><div className="grid gap-5 md:grid-cols-3">{Object.entries(plans).map(([key, item]) => <button key={key} onClick={() => { setDestination(key); document.getElementById("create")?.scrollIntoView({ behavior: "smooth" }); }} className="group relative min-h-72 overflow-hidden rounded-[26px] text-left text-white"><img src={item.image} alt={item.city} className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-105" /><div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" /><div className="absolute inset-x-0 bottom-0 flex items-end justify-between p-6"><div><p className="text-sm text-white/65">{item.country}</p><h3 className="mt-1 text-3xl font-semibold">{item.city}</h3></div><span className="grid size-11 place-items-center rounded-full bg-[#d8ff64] text-[#173c32]"><ChevronRight /></span></div></button>)}</div></div></section>
     <footer className="bg-[#08130f] px-5 py-10 text-white sm:px-8 lg:px-12"><div className="mx-auto flex max-w-[1440px] flex-col justify-between gap-5 sm:flex-row sm:items-center"><div className="flex items-center gap-3 text-lg font-semibold"><Compass className="size-5 text-[#d8ff64]" /> Wander AI</div><p className="text-sm text-white/45">MVP 演示 · 行程数据保存在当前设备</p></div></footer>
+    <div className="fixed bottom-5 right-5 z-[70] sm:bottom-7 sm:right-7">{assistantOpen && <section className="mb-3 flex h-[min(620px,calc(100vh-120px))] w-[calc(100vw-2.5rem)] max-w-[390px] flex-col overflow-hidden rounded-[26px] border border-white/40 bg-[#f7f8f4]/95 shadow-[0_24px_80px_rgba(5,25,18,.28)] backdrop-blur-2xl"><header className="flex items-center justify-between bg-[#173c32] px-5 py-4 text-white"><div className="flex items-center gap-3"><span className="grid size-10 place-items-center rounded-full bg-[#d8ff64] text-[#173c32]"><Bot className="size-5" /></span><div><h2 className="font-semibold">Wander AI 助手</h2><p className="text-xs text-white/60">联网旅行问答 · 当前：{tripCity}</p></div></div><button onClick={() => setAssistantOpen(false)} className="rounded-full p-2 hover:bg-white/10" aria-label="关闭助手"><X className="size-5" /></button></header><div className="flex-1 space-y-3 overflow-y-auto p-4">{chatMessages.map((message, index) => <div key={index} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}><p className={`max-w-[86%] whitespace-pre-line rounded-2xl px-4 py-3 text-sm leading-6 ${message.role === "user" ? "rounded-br-md bg-[#173c32] text-white" : "rounded-bl-md bg-white text-[#31433c] shadow-sm"}`}>{message.text}</p></div>)}{assistantBusy && <div className="flex justify-start"><p className="rounded-2xl rounded-bl-md bg-white px-4 py-3 text-sm text-[#61716a] shadow-sm">正在联网查询…</p></div>}</div><div className="border-t border-[#dce2dc] bg-white/80 p-3"><div className="flex items-end gap-2 rounded-2xl border border-[#d4ddd6] bg-white p-2 pl-4"><textarea value={assistantInput} onChange={(e) => setAssistantInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void askAssistant(); } }} rows={1} placeholder={`询问 ${tripCity} 的景点、美食、交通…`} className="max-h-24 min-h-10 flex-1 resize-none bg-transparent py-2 text-sm outline-none" /><button onClick={() => void askAssistant()} disabled={!assistantInput.trim() || assistantBusy} className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#d8ff64] text-[#173c32] disabled:opacity-40" aria-label="发送问题"><Send className="size-4" /></button></div></div></section>}<button onClick={() => setAssistantOpen((open) => !open)} className="ml-auto flex h-14 items-center gap-2 rounded-full bg-[#173c32] px-5 font-semibold text-white shadow-[0_16px_40px_rgba(5,35,25,.3)] hover:brightness-110"><MessageCircle className="size-5 text-[#d8ff64]" /><span>{assistantOpen ? "收起助手" : "问 Wander AI"}</span></button></div>
   </main>;
 }
 
