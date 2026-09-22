@@ -64,6 +64,7 @@ function dayRouteUrl(day: Day, city: string) {
 }
 
 const assetPath = (file: string) => `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/${file}`;
+const doubaoApiUrl = "https://gotrip-doubao-api.xingfei686.workers.dev/api/chat";
 
 function formatTripDate(value: string) {
   if (!value) return "选择日期";
@@ -373,17 +374,40 @@ export default function Home() {
     setAssistantInput(""); setAssistantBusy(true);
     setChatMessages((items) => [...items, { role: "user", text: question }]);
     let answer = "";
-    if (/预算|多少钱|费用/.test(question)) answer = `当前设置的总预算是 ¥${Number(budget || 0).toLocaleString()}，共 ${travelers} 人。建议预留约 15% 作为交通和临时支出。`;
-    else if (/日期|几号|时间|人数/.test(question)) answer = `当前行程为 ${dateSummary}，目的地是 ${tripCity}。`;
-    else if (/行程|安排|第.*天/.test(question) && generated) answer = days.map((day) => `第 ${day.day} 天：${day.activities.map((item) => item.title).join("、")}`).join("\n");
-    else {
+    let doubaoUnavailable = false;
+    if (doubaoApiUrl) {
+      try {
+        const response = await fetch(doubaoApiUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            question,
+            context: {
+              city: generated ? planCity : tripCity,
+              dates: dateSummary,
+              travelers,
+              budget: Number(budget || 0),
+              style: styleLabel(style),
+              itinerary: generated ? days.map((day) => `第 ${day.day} 天 ${day.title}：${day.activities.map((item) => `${item.time} ${item.title}（${activityPlace(item)}，约 ¥${item.cost}）`).join("；")}`).join("\n") : "尚未生成行程",
+            },
+          }),
+        });
+        const data = await response.json() as { answer?: string };
+        if (!response.ok || !data.answer?.trim()) throw new Error("豆包暂时不可用");
+        answer = data.answer.trim();
+      } catch { doubaoUnavailable = true; }
+    }
+    if (!answer && /预算|多少钱|费用/.test(question)) answer = `当前设置的总预算是 ¥${Number(budget || 0).toLocaleString()}，共 ${travelers} 人。建议预留约 15% 作为交通和临时支出。`;
+    else if (!answer && /日期|几号|时间|人数/.test(question)) answer = `当前行程为 ${dateSummary}，目的地是 ${tripCity}。`;
+    else if (!answer && /行程|安排|第.*天/.test(question) && generated) answer = days.map((day) => `第 ${day.day} 天：${day.activities.map((item) => item.title).join("、")}`).join("\n");
+    else if (!answer) {
       try {
         const results = await searchDestination(`${tripCity} ${question}`);
         const clean = (value: string) => value.replace(/<[^>]+>/g, "").replace(/&quot;/g, "“").replace(/&amp;/g, "&");
         answer = results.length ? `关于“${question}”，我查到：${results.slice(0, 3).map((item) => `${item.title}：${clean(item.snippet)}`).join("；")}。建议出发前再确认开放时间和实时政策。` : `暂时没有查到足够资料。你可以换一种问法，例如“${tripCity}有哪些必去景点？”`;
       } catch { answer = "当前网络查询暂时不可用。我仍可以根据页面中的预算、日期和行程回答问题。"; }
     }
-    setChatMessages((items) => [...items, { role: "assistant", text: answer }]); setAssistantBusy(false);
+    setChatMessages((items) => [...items, { role: "assistant", text: doubaoUnavailable ? `豆包暂时不可用，以下是现有资料的回答：\n${answer}` : answer }]); setAssistantBusy(false);
   }
   function updateActivity(dayNumber: number, id: number, patch: Partial<Activity>) { setDays((current) => current.map((day) => day.day === dayNumber ? { ...day, activities: day.activities.map((item) => item.id === id ? { ...item, ...patch } : item) } : day)); }
   function removeActivity(dayNumber: number, id: number) { setDays((current) => current.map((day) => day.day === dayNumber ? { ...day, activities: day.activities.filter((item) => item.id !== id) } : day)); }
