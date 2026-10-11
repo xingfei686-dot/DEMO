@@ -91,32 +91,59 @@ function parseAiPlan(value: string): { days: Day[]; summary: string } {
   return { days: normalized, summary: String(payload.summary || "已根据你的偏好生成结构化行程") };
 }
 
+function createTripId() {
+  return typeof crypto !== "undefined" && "randomUUID" in crypto ? createTripId() : `trip-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}, timeout = 10000) {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), timeout);
+  try { return await fetch(input, { ...init, signal: controller.signal }); }
+  finally { window.clearTimeout(timer); }
+}
+
 async function callDoubao(question: string, context: Record<string, unknown>) {
-  const response = await fetch(doubaoApiUrl, {
+  const response = await fetchWithTimeout(doubaoApiUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ question, context }),
-  });
+  }, 30000);
   const data = await response.json() as { answer?: string; error?: string };
   if (!response.ok || !data.answer?.trim()) throw new Error(data.error || "豆包暂时不可用");
   return data.answer.trim();
 }
 
 async function fetchTravelContext(city: string, startDate: string, endDate: string) {
-  const geoResponse = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=zh&format=json`);
-  const geo = await geoResponse.json() as { results?: Array<{ latitude: number; longitude: number; name: string; country?: string }> };
-  const location = geo.results?.[0];
+  let location: { latitude: number; longitude: number; name: string; country?: string } | undefined;
   let weather = "天气预报暂不可用";
-  if (location) {
-    const forecastResponse = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${location.latitude}&longitude=${location.longitude}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&start_date=${startDate}&end_date=${endDate}`);
-    if (forecastResponse.ok) {
-      const forecast = await forecastResponse.json() as { daily?: { time?: string[]; temperature_2m_max?: number[]; temperature_2m_min?: number[]; precipitation_probability_max?: number[] } };
-      weather = (forecast.daily?.time || []).map((date, index) => `${date}：${forecast.daily?.temperature_2m_min?.[index] ?? "?"}–${forecast.daily?.temperature_2m_max?.[index] ?? "?"}℃，降雨概率 ${forecast.daily?.precipitation_probability_max?.[index] ?? "?"}%`).join("；") || weather;
+  let places: string[] = [];
+  try {
+    const geoResponse = await fetchWithTimeout(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=zh&format=json`, {}, 8000);
+    if (geoResponse.ok) {
+      const geo = await geoResponse.json() as { results?: Array<{ latitude: number; longitude: number; name: string; country?: string }> };
+      location = geo.results?.[0];
     }
-  }
-  const wikiResponse = await fetch(`https://zh.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(`${city} 旅游 景点`)}&utf8=1&format=json&origin=*&srlimit=6`);
-  const wiki = await wikiResponse.json() as { query?: { search?: Array<{ title: string; snippet: string }> } };
-  const places = (wiki.query?.search || []).map((item) => item.title).slice(0, 6);
+  } catch { /* 地理编码失败时继续使用用户输入的城市。 */ }
+  const tasks: Promise<void>[] = [];
+  if (location) tasks.push((async () => {
+    try {
+      const forecastResponse = await fetchWithTimeout(`https://api.open-meteo.com/v1/forecast?latitude=${location!.latitude}&longitude=${location!.longitude}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&start_date=${startDate}&end_date=${endDate}`, {}, 8000);
+      if (forecastResponse.ok) {
+        const forecast = await forecastResponse.json() as { daily?: { time?: string[]; temperature_2m_max?: number[]; temperature_2m_min?: number[]; precipitation_probability_max?: number[] } };
+        weather = (forecast.daily?.time || []).map((date, index) => `${date}：${forecast.daily?.temperature_2m_min?.[index] ?? "?"}–${forecast.daily?.temperature_2m_max?.[index] ?? "?"}℃，降雨概率 ${forecast.daily?.precipitation_probability_max?.[index] ?? "?"}%`).join("；") || weather;
+      }
+    } catch { /* 天气失败不阻塞 AI 生成。 */ }
+  })());
+  tasks.push((async () => {
+    try {
+      const wikiResponse = await fetchWithTimeout(`https://zh.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(`${city} 旅游 景点`)}&utf8=1&format=json&origin=*&srlimit=6`, {}, 8000);
+      if (wikiResponse.ok) {
+        const wiki = await wikiResponse.json() as { query?: { search?: Array<{ title: string; snippet: string }> } };
+        places = (wiki.query?.search || []).map((item) => item.title).slice(0, 6);
+      }
+    } catch { /* 地点资料失败不阻塞 AI 生成。 */ }
+  })());
+  await Promise.all(tasks);
   return {
     weather,
     places,
@@ -380,7 +407,7 @@ export default function Home() {
 
   const saveTrip = useCallback(() => {
     if (!generated) return;
-    const trip: Trip = { id: tripId || crypto.randomUUID(), destination: planDestination, city: planCity, days: cloneDays(days), budget, style, startDate, endDate, travelers, query, nightlyStayCost, transportCost, updatedAt: Date.now() };
+    const trip: Trip = { id: tripId || createTripId(), destination: planDestination, city: planCity, days: cloneDays(days), budget, style, startDate, endDate, travelers, query, nightlyStayCost, transportCost, updatedAt: Date.now() };
     const next = [trip, ...savedTrips.filter((item) => item.id !== trip.id)].slice(0, 12);
     setTripId(trip.id); setSavedTrips(next); setNotice("行程已保存到当前设备");
     localStorage.setItem(TRIPS_KEY, JSON.stringify(next));
@@ -419,12 +446,12 @@ export default function Home() {
       const answer = await callDoubao(prompt, { city: tripCity, dates: dateSummary, travelers, budget: Number(budget), style: styleLabel(style), weather: live.weather, places: live.places });
       const aiPlan = parseAiPlan(answer);
       setDays(fitDays(aiPlan.days, tripLength));
-      setActiveDay("1"); setGenerated(true); setPlanCity(tripCity); setPlanDestination(destination); setTripId(crypto.randomUUID()); setBookingDone(false);
+      setActiveDay("1"); setGenerated(true); setPlanCity(tripCity); setPlanDestination(destination); setTripId(createTripId()); setBookingDone(false);
       setNotice("豆包已结合实时天气与地点资料生成行程"); setChangeSummary(aiPlan.summary);
       window.setTimeout(() => document.getElementById("planner")?.scrollIntoView({ behavior: "smooth" }), 80);
     } catch {
       const fallback = tripCity === baseSelected.city ? fitDays(baseSelected.days, tripLength) : fitDays([{ day: 1, title: "抵达与探索", activities: [{ id: Date.now(), time: "10:00", title: `${tripCity} 城市漫步`, detail: "AI 暂时不可用，可继续手动编辑。", cost: 0, place: tripCity }] }], tripLength);
-      setDays(fallback); setActiveDay("1"); setGenerated(true); setPlanCity(tripCity); setPlanDestination(destination); setTripId(crypto.randomUUID()); setBookingDone(false);
+      setDays(fallback); setActiveDay("1"); setGenerated(true); setPlanCity(tripCity); setPlanDestination(destination); setTripId(createTripId()); setBookingDone(false);
       setNotice("AI 生成暂时不可用，已载入可编辑的备用路线");
     } finally { setGenerating(false); }
   }
@@ -504,7 +531,7 @@ export default function Home() {
       execute(input: unknown) {
         const value = (input as { destination?: string })?.destination;
         if (!value || !plans[value]) throw new Error("不支持的目的地");
-        setDestination(value); setDestinationText(plans[value].city); setPlanDestination(value); setPlanCity(plans[value].city); setDays(fitDays(plans[value].days, validDates ? tripLength : 3)); setGenerated(true); setActiveDay("1"); setTripId(crypto.randomUUID());
+        setDestination(value); setDestinationText(plans[value].city); setPlanDestination(value); setPlanCity(plans[value].city); setDays(fitDays(plans[value].days, validDates ? tripLength : 3)); setGenerated(true); setActiveDay("1"); setTripId(createTripId());
         return { destination: plans[value].city, days: validDates ? tripLength : 3, status: "generated" };
       },
     });
