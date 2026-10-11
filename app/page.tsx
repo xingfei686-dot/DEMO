@@ -92,7 +92,7 @@ function parseAiPlan(value: string): { days: Day[]; summary: string } {
 }
 
 function createTripId() {
-  return typeof crypto !== "undefined" && "randomUUID" in crypto ? createTripId() : `trip-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return `trip-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
 async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}, timeout = 10000) {
