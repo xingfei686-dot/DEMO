@@ -10,6 +10,9 @@ type Activity = { id: number; time: string; title: string; detail: string; cost:
 type Day = { day: number; title: string; activities: Activity[] };
 type Coordinates = { lat: number; lng: number };
 type ChatMessage = { role: "assistant" | "user"; text: string };
+type WeatherInfo = { label: string; temperature: string; rain: string; updatedAt: string };
+type SourceLink = { label: string; url: string };
+type AiPlanPayload = { days: Array<{ day: number; title: string; activities: Array<{ time: string; title: string; detail: string; cost: number; place: string }> }>; summary?: string };
 type Trip = { id: string; destination: string; city: string; days: Day[]; budget: string; style: string; startDate: string; endDate: string; travelers: number; query: string; nightlyStayCost?: number; transportCost?: number; updatedAt: number };
 const TRIPS_KEY = "wander-trips-v2";
 const DRAFT_KEY = "wander-draft-v2";
@@ -65,6 +68,67 @@ function dayRouteUrl(day: Day, city: string) {
 
 const assetPath = (file: string) => `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/${file}`;
 const doubaoApiUrl = "https://gotrip-doubao-api.xingfei686.workers.dev/api/chat";
+
+function parseAiPlan(value: string): { days: Day[]; summary: string } {
+  const clean = value.replace(/```json|\```/gi, "").trim();
+  const start = clean.indexOf("{");
+  const end = clean.lastIndexOf("}");
+  if (start < 0 || end <= start) throw new Error("AI 没有返回结构化行程");
+  const payload = JSON.parse(clean.slice(start, end + 1)) as AiPlanPayload;
+  if (!Array.isArray(payload.days) || !payload.days.length) throw new Error("AI 行程为空");
+  const normalized = payload.days.slice(0, 7).map((day, dayIndex) => ({
+    day: dayIndex + 1,
+    title: String(day.title || `第 ${dayIndex + 1} 天`),
+    activities: Array.isArray(day.activities) ? day.activities.slice(0, 6).map((item, itemIndex) => ({
+      id: Date.now() + dayIndex * 100 + itemIndex,
+      time: /^\d{2}:\d{2}$/.test(String(item.time)) ? String(item.time) : "10:00",
+      title: String(item.title || "自由探索"),
+      detail: String(item.detail || "根据现场情况灵活调整"),
+      cost: Math.max(0, Number(item.cost) || 0),
+      place: String(item.place || item.title || ""),
+    })) : [],
+  }));
+  return { days: normalized, summary: String(payload.summary || "已根据你的偏好生成结构化行程") };
+}
+
+async function callDoubao(question: string, context: Record<string, unknown>) {
+  const response = await fetch(doubaoApiUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ question, context }),
+  });
+  const data = await response.json() as { answer?: string; error?: string };
+  if (!response.ok || !data.answer?.trim()) throw new Error(data.error || "豆包暂时不可用");
+  return data.answer.trim();
+}
+
+async function fetchTravelContext(city: string, startDate: string, endDate: string) {
+  const geoResponse = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=zh&format=json`);
+  const geo = await geoResponse.json() as { results?: Array<{ latitude: number; longitude: number; name: string; country?: string }> };
+  const location = geo.results?.[0];
+  let weather = "天气预报暂不可用";
+  if (location) {
+    const forecastResponse = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${location.latitude}&longitude=${location.longitude}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&start_date=${startDate}&end_date=${endDate}`);
+    if (forecastResponse.ok) {
+      const forecast = await forecastResponse.json() as { daily?: { time?: string[]; temperature_2m_max?: number[]; temperature_2m_min?: number[]; precipitation_probability_max?: number[] } };
+      weather = (forecast.daily?.time || []).map((date, index) => `${date}：${forecast.daily?.temperature_2m_min?.[index] ?? "?"}–${forecast.daily?.temperature_2m_max?.[index] ?? "?"}℃，降雨概率 ${forecast.daily?.precipitation_probability_max?.[index] ?? "?"}%`).join("；") || weather;
+    }
+  }
+  const wikiResponse = await fetch(`https://zh.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(`${city} 旅游 景点`)}&utf8=1&format=json&origin=*&srlimit=6`);
+  const wiki = await wikiResponse.json() as { query?: { search?: Array<{ title: string; snippet: string }> } };
+  const places = (wiki.query?.search || []).map((item) => item.title).slice(0, 6);
+  return {
+    weather,
+    places,
+    locationLabel: location ? `${location.name}${location.country ? `，${location.country}` : ""}` : city,
+    weatherInfo: weather === "天气预报暂不可用" ? null : {
+      label: "Open-Meteo 实时预报",
+      temperature: weather.split("；")[0] || weather,
+      rain: weather.includes("降雨概率") ? weather.split("；").map((item) => item.match(/降雨概率\s*[^，]+/)?.[0]).filter(Boolean).join(" · ") : "降雨信息暂缺",
+      updatedAt: new Date().toLocaleString("zh-CN", { hour12: false }),
+    } satisfies WeatherInfo,
+  };
+}
 
 function formatTripDate(value: string) {
   if (!value) return "选择日期";
@@ -244,6 +308,11 @@ export default function Home() {
   const [nightlyStayCost, setNightlyStayCost] = useState(1800);
   const [transportCost, setTransportCost] = useState(1080);
   const [notice, setNotice] = useState("");
+  const [revisionInput, setRevisionInput] = useState("");
+  const [revising, setRevising] = useState(false);
+  const [changeSummary, setChangeSummary] = useState("");
+  const [weatherInfo, setWeatherInfo] = useState<WeatherInfo | null>(null);
+  const [sourceLinks, setSourceLinks] = useState<SourceLink[]>([]);
   const collectedTrip = savedTrips.find((trip) => trip.id === tripId);
   const hasUnsavedChanges = Boolean(collectedTrip && (
     collectedTrip.city !== planCity || collectedTrip.destination !== planDestination ||
@@ -338,36 +407,45 @@ export default function Home() {
   }
   async function generatePlan() {
     if (!tripCity.trim() || !validDates || !Number(budget)) { setNotice("请填写目的地、有效日期和旅行预算"); return; }
-    setGenerating(true);
+    setGenerating(true); setChangeSummary("");
     try {
-      if (tripCity === baseSelected.city) {
-        setDays(fitDays(baseSelected.days, tripLength)); setActiveDay("1"); setGenerated(true); setPlanCity(tripCity); setPlanDestination(destination); setTripId(crypto.randomUUID()); setBookingDone(false); setNotice("已载入精选路线，可按喜好继续调整");
-        window.setTimeout(() => document.getElementById("planner")?.scrollIntoView({ behavior: "smooth" }), 80);
-        return;
-      }
-      const results = await searchDestination(`${tripCity} 旅游 景点`);
-      const names = results.map((item) => item.title).filter((name) => name.length < 18 && !/列表|電影|电影|節目|节目|电视剧|電視劇|歌曲|人物|攻略/.test(name)).slice(0, 6);
-      const fallback = ["城市地标与老城区", "当地市场与特色美食", "博物馆与文化街区", "自然景观与观景台", "社区漫步与咖啡时间", "夜景与在地晚餐"];
-      const spots = [...names, ...fallback].slice(0, 6);
-      const dailyCost = Math.max(200, Math.round(Number(budget || 0) / Math.max(travelers, 1) / tripLength));
-      const customDays: Day[] = [
-        { day: 1, title: "抵达与城市初见", activities: [{ id: 101, time: "10:00", title: spots[0], detail: `从 ${tripCity} 的代表性区域开始，熟悉城市节奏。`, cost: Math.round(dailyCost * .2) }, { id: 102, time: "14:30", title: spots[1], detail: query || "品尝当地风味，并留出自由探索时间。", cost: Math.round(dailyCost * .35) }, { id: 103, time: "19:00", title: "在地特色晚餐", detail: `根据当前 ¥${Number(budget || 0).toLocaleString()} 预算安排餐饮。`, cost: Math.round(dailyCost * .35) }] },
-        { day: 2, title: "文化与经典体验", activities: [{ id: 201, time: "09:00", title: spots[2], detail: "联网检索到的目的地相关文化景点，可继续编辑替换。", cost: Math.round(dailyCost * .25) }, { id: 202, time: "13:30", title: spots[3], detail: styleLabel(style) === "松弛慢游" ? "安排充足休息，轻松游览。" : "串联周边景点，提高游览效率。", cost: Math.round(dailyCost * .3) }, { id: 203, time: "18:30", title: "日落与夜间体验", detail: `适合 ${travelers} 人共同体验的夜间安排。`, cost: Math.round(dailyCost * .3) }] },
-        { day: 3, title: "深入当地生活", activities: [{ id: 301, time: "09:30", title: spots[4], detail: "避开高峰时段，感受当地社区与生活方式。", cost: Math.round(dailyCost * .15) }, { id: 302, time: "14:00", title: spots[5], detail: "根据天气和现场开放情况灵活调整。", cost: Math.round(dailyCost * .25) }, { id: 303, time: "17:30", title: "返程前自由活动", detail: "预留交通与行李整理时间。", cost: Math.round(dailyCost * .15) }] },
-      ];
-      setDays(fitDays(customDays, tripLength)); setActiveDay("1"); setGenerated(true); setPlanCity(tripCity); setPlanDestination(destination); setTripId(crypto.randomUUID()); setBookingDone(false); setNotice("行程已生成，可直接编辑并保存");
+      const live = await fetchTravelContext(tripCity, startDate, endDate);
+      setWeatherInfo(live.weatherInfo);
+      setSourceLinks([
+        { label: "天气数据 · Open-Meteo", url: "https://open-meteo.com/" },
+        { label: "地点资料 · 维基百科", url: `https://zh.wikipedia.org/w/index.php?search=${encodeURIComponent(tripCity + " 旅游")}` },
+      ]);
+      const prompt = `请为用户生成一份可以直接执行的旅行行程。只返回 JSON，不要 Markdown。格式：{"summary":"一句话规划说明","days":[{"day":1,"title":"当天主题","activities":[{"time":"09:00","title":"活动名称","place":"可地图检索的具体地点","detail":"推荐理由、交通或预约提醒","cost":120}]}]}。必须生成 ${tripLength} 天，每天 2–4 个活动；地点真实、同一天尽量顺路；总活动与餐饮费用应适配预算，住宿和交通另计；结合天气调整室内外安排。目的地：${tripCity}；日期：${startDate} 至 ${endDate}；人数：${travelers}；总预算：¥${budget}；节奏：${styleLabel(style)}；特别偏好：${query || "无"}；联网天气：${live.weather}；可参考地点：${live.places.join("、") || "无"}。`;
+      const answer = await callDoubao(prompt, { city: tripCity, dates: dateSummary, travelers, budget: Number(budget), style: styleLabel(style), weather: live.weather, places: live.places });
+      const aiPlan = parseAiPlan(answer);
+      setDays(fitDays(aiPlan.days, tripLength));
+      setActiveDay("1"); setGenerated(true); setPlanCity(tripCity); setPlanDestination(destination); setTripId(crypto.randomUUID()); setBookingDone(false);
+      setNotice("豆包已结合实时天气与地点资料生成行程"); setChangeSummary(aiPlan.summary);
       window.setTimeout(() => document.getElementById("planner")?.scrollIntoView({ behavior: "smooth" }), 80);
     } catch {
-      if (tripCity === baseSelected.city) {
-        setDays(fitDays(selected.days, tripLength));
-        setNotice("当前网络不可用，已载入目的地精选路线");
-      } else {
-        setDays(fitDays([{ day: 1, title: "抵达与探索", activities: [{ id: Date.now(), time: "10:00", title: `${tripCity} 城市漫步`, detail: "可编辑时间、地点和预算，按需添加体验。", cost: 0 }] }, { day: 2, title: "深入当地", activities: [] }, { day: 3, title: "自由安排", activities: [] }], tripLength));
-        setNotice("当前网络不可用，已创建可编辑的空白路线");
-      }
-      setActiveDay("1"); setGenerated(true); setPlanCity(tripCity); setPlanDestination(destination); setTripId(crypto.randomUUID()); setBookingDone(false);
+      const fallback = tripCity === baseSelected.city ? fitDays(baseSelected.days, tripLength) : fitDays([{ day: 1, title: "抵达与探索", activities: [{ id: Date.now(), time: "10:00", title: `${tripCity} 城市漫步`, detail: "AI 暂时不可用，可继续手动编辑。", cost: 0, place: tripCity }] }], tripLength);
+      setDays(fallback); setActiveDay("1"); setGenerated(true); setPlanCity(tripCity); setPlanDestination(destination); setTripId(crypto.randomUUID()); setBookingDone(false);
+      setNotice("AI 生成暂时不可用，已载入可编辑的备用路线");
     } finally { setGenerating(false); }
   }
+
+  async function revisePlan() {
+    const instruction = revisionInput.trim();
+    if (!instruction || revising || !generated) return;
+    setRevising(true);
+    try {
+      const live = await fetchTravelContext(planCity, startDate, endDate);
+      setWeatherInfo(live.weatherInfo);
+      const current = days.map((day) => ({ day: day.day, title: day.title, activities: day.activities.map(({ time, title, detail, cost, place }) => ({ time, title, detail, cost, place: place || title })) }));
+      const prompt = `请按照用户指令修改现有旅行行程，只返回 JSON，不要 Markdown。保留用户没有要求改变的安排。格式：{"summary":"清楚说明修改了什么","days":[{"day":1,"title":"当天主题","activities":[{"time":"09:00","title":"活动名称","place":"具体地点","detail":"理由或提醒","cost":120}]}]}。用户指令：${instruction}；目的地：${planCity}；日期：${startDate} 至 ${endDate}；人数：${travelers}；预算：¥${budget}；天气：${live.weather}；现有行程：${JSON.stringify(current)}`;
+      const answer = await callDoubao(prompt, { city: planCity, dates: dateSummary, travelers, budget: Number(budget), style: styleLabel(style), weather: live.weather, itinerary: JSON.stringify(current) });
+      const revised = parseAiPlan(answer);
+      setDays(fitDays(revised.days, tripLength)); setChangeSummary(revised.summary); setRevisionInput("");
+      setNotice("AI 已完成调整，请检查后保存");
+    } catch { setNotice("这次调整没有成功，请换一种说法后重试"); }
+    finally { setRevising(false); }
+  }
+
   async function askAssistant() {
     const question = assistantInput.trim();
     if (!question || assistantBusy) return;
@@ -461,6 +539,12 @@ export default function Home() {
 
     <section id="planner" className="mx-auto max-w-[1440px] scroll-mt-20 px-5 py-20 sm:px-8 lg:px-12"><div className="mb-7 flex items-end justify-between gap-4"><div><span className="text-sm font-semibold uppercase tracking-[.18em] text-[#60746b]">My journeys</span><h2 className="mt-2 text-3xl font-semibold sm:text-4xl">我的行程</h2></div><span className="hidden text-sm text-[#60746b] sm:block">草稿会自动保存在当前设备</span></div>{notice && <div role="status" className="mb-6 flex items-center justify-between rounded-2xl border border-[#c8ddc6] bg-[#eef8e9] px-4 py-3 text-sm text-[#244b31]"><span>{notice}</span><button onClick={() => setNotice("")} aria-label="关闭提示"><X className="size-4" /></button></div>}{savedTrips.length > 0 && <div className="mb-8 rounded-[26px] border border-[#dce2dc] bg-white p-5 sm:p-6"><div className="flex items-center justify-between"><h3 className="text-lg font-semibold">已保存的行程</h3><span className="text-sm text-[#60746b]">{savedTrips.length} 份</span></div><div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">{savedTrips.map((trip) => <div key={trip.id} className="flex items-center gap-3 rounded-2xl border border-[#e0e7df] bg-[#fbfcf9] p-3"><img src={(plans[trip.destination] || plans.tokyo).image} alt="" className="size-14 shrink-0 rounded-xl object-cover" /><div className="min-w-0 flex-1"><p className="truncate font-semibold">{trip.city} · {trip.days.length} 天</p><p className="mt-1 text-xs text-[#60746b]">{trip.startDate} · {trip.travelers} 人</p></div><button onClick={() => restoreTrip(trip)} className="rounded-full bg-[#173c32] px-3 py-2 text-xs font-semibold text-white" aria-label={`打开${trip.city}行程`}>打开</button><button onClick={() => removeSavedTrip(trip.id)} className="rounded-full p-2 text-[#788a7f] hover:bg-[#f2e6e2] hover:text-[#b74a38]" aria-label={`删除${trip.city}收藏`}><Trash2 className="size-4" /></button></div>)}</div></div>}{!generated ? <div className="grid min-h-[360px] place-items-center rounded-[32px] border border-dashed border-[#9faea6] bg-white/55 text-center"><div><span className="mx-auto grid size-16 place-items-center rounded-full bg-[#e4eadf]"><Map className="size-7 text-[#426258]" /></span><h2 className="mt-5 text-2xl font-semibold">你的旅程将在这里展开</h2><p className="mt-2 text-[#61716a]">填写旅行信息，生成一份可以随时调整的路线。</p></div></div> : <>
       <div className="flex flex-col justify-between gap-6 md:flex-row md:items-end"><div className="min-w-0"><span className="text-sm font-semibold uppercase tracking-[.18em] text-[#60746b]">Your itinerary</span><h2 className="mt-2 text-3xl font-semibold tracking-[-.04em] sm:text-5xl">{planCity}，{days.length} 天 {Math.max(0, days.length - 1)} 夜</h2><p className="mt-3 text-[#61716a]">{styleLabel(style) || "自由探索"} · {travelers} 位旅客 · 预算 ¥{Number(budget || 0).toLocaleString()}</p></div><div className="flex flex-wrap gap-3"><Button variant="outline" onClick={collectedTrip ? () => removeSavedTrip(tripId) : saveTrip} aria-pressed={Boolean(collectedTrip)} className={`rounded-full ${collectedTrip ? "border-[#e6a795] bg-[#fff4ef] text-[#a74635]" : "bg-white"}`}><Heart className={`size-4 ${collectedTrip ? "fill-[#e96d54] text-[#e96d54]" : ""}`} /> {collectedTrip ? "已收藏 · 点击取消" : "收藏行程"}</Button>{hasUnsavedChanges && <Button variant="outline" onClick={saveTrip} className="rounded-full border-[#97b99e] bg-[#edf7e9] text-[#173c32]"><Check className="size-4" /> 保存修改</Button>}<Button variant="outline" onClick={exportTrip} className="rounded-full bg-white"><Download className="size-4" /> 导出</Button><Dialog open={checkoutOpen} onOpenChange={setCheckoutOpen}><DialogTrigger asChild><Button className="rounded-full bg-[#173c32] px-5 text-white sm:px-6">模拟下单 <ArrowRight /></Button></DialogTrigger><DialogContent className="w-[calc(100%-2rem)] rounded-[24px] sm:rounded-[28px]"><DialogHeader><DialogTitle className="text-2xl">确认旅行方案</DialogTitle><DialogDescription>{planCity} {days.length} 天 · {travelers} 位旅客 · {dateSummary}</DialogDescription></DialogHeader>{bookingDone ? <div className="py-8 text-center"><span className="mx-auto grid size-16 place-items-center rounded-full bg-[#d8ff64]"><Check className="size-7" /></span><h3 className="mt-5 text-2xl font-semibold">预订申请已创建</h3><p className="mt-2 text-[#61716a]">这是一份本地演示记录，未产生实际订单或付款。</p><Button className="mt-6 rounded-full bg-[#173c32] text-white" onClick={() => setCheckoutOpen(false)}>返回行程</Button></div> : <div className="space-y-4"><div className="rounded-2xl bg-[#edf0e9] p-5"><div className="flex justify-between"><span>行程总额预估</span><strong>¥{total.toLocaleString()}</strong></div><div className="mt-3 flex justify-between text-sm text-[#61716a]"><span>当前为模拟订单</span><span>无需付款</span></div></div><label className="block text-sm font-medium">联系人<input defaultValue={user || "旅行者"} className="mt-2 h-12 w-full rounded-xl border px-4 text-base" /></label><Button className="h-12 w-full rounded-xl bg-[#173c32] text-white" onClick={() => setBookingDone(true)}>确认提交</Button></div>}</DialogContent></Dialog></div></div>
+      <section className="mt-8 overflow-hidden rounded-[28px] border border-[#cbdcca] bg-[linear-gradient(135deg,#eef7e9,#ffffff)] p-5 shadow-[0_16px_42px_rgba(23,60,50,.07)] sm:p-6">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between"><div className="max-w-xl"><p className="text-xs font-semibold uppercase tracking-[.16em] text-[#5d826a]">AI itinerary editor</p><h3 className="mt-1 text-xl font-semibold text-[#173c32]">用一句话调整整份行程</h3><p className="mt-2 text-sm leading-6 text-[#60746b]">例如“第二天轻松一点”“预算控制在 5000 元以内”或“下雨天换成室内活动”。豆包会保留未要求修改的安排。</p></div>{weatherInfo && <div className="rounded-2xl border border-[#d6e4d2] bg-white px-4 py-3 text-sm text-[#36594a]"><strong className="block">实时天气已接入</strong><span className="mt-1 block text-xs leading-5 text-[#688071]">{weatherInfo.temperature}</span></div>}</div>
+        <div className="mt-5 flex flex-col gap-3 sm:flex-row"><input value={revisionInput} onChange={(event) => setRevisionInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void revisePlan(); }} placeholder="告诉 AI 你想怎样调整…" className="h-12 min-w-0 flex-1 rounded-2xl border border-[#cbd8cc] bg-white px-4 text-sm outline-none focus:border-[#387257]" /><Button onClick={() => void revisePlan()} disabled={!revisionInput.trim() || revising} className="h-12 rounded-2xl bg-[#173c32] px-6 text-white">{revising ? "正在重新规划…" : "AI 调整行程"} <Sparkles className="size-4" /></Button></div>
+        {changeSummary && <p className="mt-4 rounded-2xl bg-[#173c32] px-4 py-3 text-sm leading-6 text-white"><span className="font-semibold text-[#d8ff64]">本次规划说明：</span>{changeSummary}</p>}
+        {sourceLinks.length > 0 && <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-[#688071]"><span>联网依据</span>{sourceLinks.map((source) => <a key={source.url} href={source.url} target="_blank" rel="noopener noreferrer" className="rounded-full border border-[#cbd8cc] bg-white px-3 py-1.5 hover:border-[#387257]">{source.label} <ExternalLink className="ml-1 inline size-3" /></a>)}<span>· 更新于 {weatherInfo?.updatedAt || "本次生成时"}</span></div>}
+      </section>
       <div className="mt-10 grid min-w-0 gap-6 lg:grid-cols-[1.15fr_.85fr]"><div id="trip-days" className="min-w-0 scroll-mt-24 rounded-[24px] bg-white p-4 shadow-[0_20px_60px_rgba(20,45,37,.08)] sm:rounded-[30px] sm:p-8"><Tabs value={activeDay} onValueChange={setActiveDay}><TabsList className="flex h-auto w-full justify-start gap-1 overflow-x-auto rounded-2xl bg-[#edf0e9] p-1">{days.map((day) => <TabsTrigger key={day.day} value={String(day.day)} className="min-w-24 flex-1 rounded-xl px-2 py-3 data-[state=active]:bg-[#173c32] data-[state=active]:text-white">第 {day.day} 天</TabsTrigger>)}</TabsList>{days.map((day) => <TabsContent key={day.day} value={String(day.day)} className="mt-7"><div className="mb-5 flex items-center justify-between"><div><p className="text-sm text-[#718078]">DAY {day.day} · {day.activities.length} 个安排 · 约 ¥{day.activities.reduce((sum, item) => sum + item.cost, 0).toLocaleString()}</p><h3 className="text-xl font-semibold sm:text-2xl">{day.title}</h3></div><Button variant="outline" size="sm" className="rounded-full" onClick={() => addActivity(day.day)}><Plus className="size-4" /> 添加</Button></div><div className="space-y-3">{day.activities.length === 0 && <p className="rounded-2xl border border-dashed border-[#cbd8cc] p-6 text-center text-sm text-[#61716a]">这一天还没有安排，点击“添加”开始规划。</p>}{day.activities.map((item) => <ActivityCard key={item.id} item={item} dayNumber={day.day} city={planCity} fallbackImage={planCity === plannerSelected.city ? plannerSelected.image : assetPath("hero.webp")} onUpdate={updateActivity} onRemove={removeActivity} />)}</div></TabsContent>)}</Tabs></div>
         <RouteBudgetPanel city={planCity} image={planCity === plannerSelected.city ? plannerSelected.image : assetPath("hero.webp")} dateSummary={dateSummary} days={days} travelers={travelers} budget={budget} total={total} hotelCost={hotelCost} transportCost={transportCost} activityTotal={activityTotal} nightlyStayCost={nightlyStayCost} activeDay={activeDay} onSelectDay={(value) => { setActiveDay(value); document.getElementById("trip-days")?.scrollIntoView({ behavior: "smooth", block: "start" }); }} onBudgetChange={(value) => { setBudget(value); }} onNightlyStayChange={(value) => { setNightlyStayCost(value); }} onTransportChange={(value) => { setTransportCost(value); }} appleMapsUrl={appleMapsUrl} googleMapsUrl={googleMapsUrl} amapUrl={amapUrl} /></div>
     </>}</section>
