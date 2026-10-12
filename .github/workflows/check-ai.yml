@@ -7,17 +7,10 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Check CORS preflight
+      - name: Check full itinerary generation
         run: |
-          curl -i -sS --max-time 20 -X OPTIONS \
-            -H 'Origin: https://xingfei686-dot.github.io' \
-            -H 'Access-Control-Request-Method: POST' \
-            -H 'Access-Control-Request-Headers: content-type' \
-            'https://gotrip-doubao-api.xingfei686.workers.dev/api/chat'
-      - name: Check AI request
-        run: |
-          curl -i -sS --max-time 45 \
+          curl -i -sS --max-time 60 -w '\nTOTAL_TIME=%{time_total}\nHTTP_CODE=%{http_code}\n' \
             -H 'Origin: https://xingfei686-dot.github.io' \
             -H 'Content-Type: application/json' \
-            --data '{"question":"请只回复接口正常","context":{"test":true}}' \
+            --data '{"question":"请为用户生成一份可以直接执行的旅行行程。只返回 JSON，不要 Markdown。格式：{\"summary\":\"一句话规划说明\",\"days\":[{\"day\":1,\"title\":\"当天主题\",\"activities\":[{\"time\":\"09:00\",\"title\":\"活动名称\",\"place\":\"可地图检索的具体地点\",\"detail\":\"推荐理由、交通或预约提醒\",\"cost\":120}]}]}。必须生成 3 天，每天 2–4 个活动；地点真实、同一天尽量顺路；总活动与餐饮费用应适配预算。目的地：东京；日期：2026-10-13 至 2026-10-15；人数：2；总预算：8000；节奏：张弛有度。","context":{"city":"东京","dates":"2026-10-13 至 2026-10-15","travelers":2,"budget":8000,"style":"张弛有度"}}' \
             'https://gotrip-doubao-api.xingfei686.workers.dev/api/chat'
