@@ -1,0 +1,23 @@
+name: Diagnose GoTrip AI
+on:
+  push:
+    paths:
+      - ".github/workflows/check-ai.yml"
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check CORS preflight
+        run: |
+          curl -i -sS --max-time 20 -X OPTIONS \
+            -H 'Origin: https://xingfei686-dot.github.io' \
+            -H 'Access-Control-Request-Method: POST' \
+            -H 'Access-Control-Request-Headers: content-type' \
+            'https://gotrip-doubao-api.xingfei686.workers.dev/api/chat'
+      - name: Check AI request
+        run: |
+          curl -i -sS --max-time 45 \
+            -H 'Origin: https://xingfei686-dot.github.io' \
+            -H 'Content-Type: application/json' \
+            --data '{"question":"请只回复接口正常","context":{"test":true}}' \
+            'https://gotrip-doubao-api.xingfei686.workers.dev/api/chat'
