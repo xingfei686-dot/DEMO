@@ -1,0 +1,16 @@
+name: Diagnose Mobile AI
+on:
+  push:
+    paths:
+      - ".github/workflows/check-mobile-ai.yml"
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call production Worker
+        run: |
+          curl -i -sS --max-time 110 -w '\nTOTAL_TIME=%{time_total}\nHTTP_CODE=%{http_code}\n' \
+            -H 'Origin: https://xingfei686-dot.github.io' \
+            -H 'Content-Type: application/json' \
+            --data '{"question":"上海景点推荐","context":{"city":"上海","source":"mobile-test"}}' \
+            'https://gotrip-doubao-api.xingfei686.workers.dev/api/chat'
