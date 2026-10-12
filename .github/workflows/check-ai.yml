@@ -7,10 +7,10 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Check full itinerary generation
+      - name: Check minimal structured generation
         run: |
           curl -i -sS --max-time 60 -w '\nTOTAL_TIME=%{time_total}\nHTTP_CODE=%{http_code}\n' \
             -H 'Origin: https://xingfei686-dot.github.io' \
             -H 'Content-Type: application/json' \
-            --data '{"question":"请为用户生成一份可以直接执行的旅行行程。只返回 JSON，不要 Markdown。格式：{\"summary\":\"一句话规划说明\",\"days\":[{\"day\":1,\"title\":\"当天主题\",\"activities\":[{\"time\":\"09:00\",\"title\":\"活动名称\",\"place\":\"可地图检索的具体地点\",\"detail\":\"推荐理由、交通或预约提醒\",\"cost\":120}]}]}。只生成第 1 天，共 2–4 个活动；地点真实、同一天尽量顺路；总活动与餐饮费用应适配预算。目的地：东京；日期：2026-10-13；人数：2；总预算：8000；节奏：张弛有度。","context":{"city":"东京","dates":"2026-10-13","travelers":2,"budget":8000,"style":"张弛有度"}}' \
+            --data '{"question":"仅输出紧凑JSON：{\"summary\":\"\",\"days\":[{\"day\":1,\"title\":\"\",\"activities\":[{\"time\":\"09:00\",\"title\":\"\",\"place\":\"\",\"detail\":\"\",\"cost\":0}]}]}。东京1日，2个顺路活动，2人，预算8000元。每条detail不超过18字。","context":{"city":"东京","days":1}}' \
             'https://gotrip-doubao-api.xingfei686.workers.dev/api/chat'
