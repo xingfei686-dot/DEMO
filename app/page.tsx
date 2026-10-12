@@ -482,7 +482,7 @@ export default function Home() {
     let doubaoUnavailable = false;
     if (doubaoApiUrl) {
       try {
-        const response = await fetch(doubaoApiUrl, {
+        const response = await fetchWithTimeout(doubaoApiUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -496,7 +496,7 @@ export default function Home() {
               itinerary: generated ? days.map((day) => `第 ${day.day} 天 ${day.title}：${day.activities.map((item) => `${item.time} ${item.title}（${activityPlace(item)}，约 ¥${item.cost}）`).join("；")}`).join("\n") : "尚未生成行程",
             },
           }),
-        });
+        }, 25000);
         const data = await response.json() as { answer?: string };
         if (!response.ok || !data.answer?.trim()) throw new Error("豆包暂时不可用");
         answer = data.answer.trim();
