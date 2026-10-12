@@ -12,5 +12,5 @@ jobs:
           curl -i -sS --max-time 60 -w '\nTOTAL_TIME=%{time_total}\nHTTP_CODE=%{http_code}\n' \
             -H 'Origin: https://xingfei686-dot.github.io' \
             -H 'Content-Type: application/json' \
-            --data '{"question":"仅输出紧凑JSON：{\"summary\":\"\",\"days\":[{\"day\":1,\"title\":\"\",\"activities\":[{\"time\":\"09:00\",\"title\":\"\",\"place\":\"\",\"detail\":\"\",\"cost\":0}]}]}。东京1日，2个顺路活动，2人，预算8000元。每条detail不超过18字。","context":{"city":"东京","days":1}}' \
+            --data '{"question":"东京一日游推荐2个顺路地点。只输出两行，每行格式：时间|活动|具体地点|18字内提醒|人均费用数字","context":{"city":"东京","days":1}}' \
             'https://gotrip-doubao-api.xingfei686.workers.dev/api/chat'
