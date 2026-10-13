@@ -3,7 +3,7 @@
 - **项目周期：**2025.09–2025.10
 - **项目角色：**独立负责产品设计、Agent 搭建与调优
 - **产品状态：**MVP 已发布
-- **在线体验：**[乡村文化通（Coze）](https://www.coze.cn/store/agent/7568018928308584490?bot_id=true)
+- **在线体验：**[乡村文化通（Coze）](https://www.coze.cn/store/agent/7696162329666404371?bot_id=true)
 
 ---
 
