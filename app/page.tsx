@@ -68,6 +68,7 @@ function dayRouteUrl(day: Day, city: string) {
 
 const assetPath = (file: string) => `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/${file}`;
 const doubaoApiUrl = "https://s68pp1b4tb69l0tuft5os.apigateway-cn-beijing.volceapi.com/api/chat";
+const placePhotoApiUrl = doubaoApiUrl.replace(/\/api\/chat\/?$/, "/api/place-photo");
 
 function parseAiPlan(value: string): { days: Day[]; summary: string } {
   const clean = value.replace(/```json|\```/gi, "").trim();
@@ -190,11 +191,11 @@ function ActivityCard({ item, dayNumber, city, fallbackImage, onUpdate, onRemove
   onRemove: (day: number, id: number) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [photo, setPhoto] = useState<{ key: string; url: string | null; article: string | null } | null>(null);
+  const [photo, setPhoto] = useState<{ key: string; url: string | null; article: string | null; source?: string } | null>(null);
   const featured = featuredPlaces[item.id];
   const place = item.place !== undefined ? item.place.trim() : featured?.name || item.title.trim();
-  const wikiTitle = item.place !== undefined ? place : featured?.wiki || place;
-  const photoReady = photo?.key === wikiTitle;
+  const photoKey = `${place}|${city}`;
+  const photoReady = photo?.key === photoKey;
   const photoUrl = photoReady ? photo?.url : null;
   const mapQuery = encodeURIComponent(`${place} ${city}`);
   const googleRoute = `https://www.google.com/maps/dir/?api=1&destination=${mapQuery}`;
@@ -203,32 +204,32 @@ function ActivityCard({ item, dayNumber, city, fallbackImage, onUpdate, onRemove
   const photoSearchUrl = `https://image.baidu.com/search/index?tn=baiduimage&word=${encodeURIComponent(`${place} ${city}`)}`;
 
   useEffect(() => {
-    if (!open || !wikiTitle) return;
+    if (!open || !place) return;
     const controller = new AbortController();
     let active = true;
     const timeoutId = window.setTimeout(() => controller.abort(), 6_000);
     setPhoto(null);
-    type PhotoPage = { thumbnail?: { source: string }; canonicalurl?: string };
-    const request = async (params: string): Promise<PhotoPage[]> => {
-      const response = await fetch(`https://zh.wikipedia.org/w/api.php?action=query&prop=pageimages%7Cinfo&inprop=url&piprop=thumbnail&pithumbsize=960&format=json&formatversion=2&origin=*&${params}`, { signal: controller.signal });
-      if (!response.ok) throw new Error("photo unavailable");
-      const data = await response.json() as { query?: { pages?: PhotoPage[] } };
-      return data.query?.pages || [];
-    };
     void (async () => {
       try {
-        const exact = await request(`redirects=1&titles=${encodeURIComponent(wikiTitle)}`);
-        let page = exact.find((entry) => entry.thumbnail?.source);
-        if (!page) {
-          const nearby = await request(`generator=search&gsrsearch=${encodeURIComponent(`${place} ${city}`)}&gsrlimit=5`);
-          page = nearby.find((entry) => entry.thumbnail?.source);
-        }
-        if (active) setPhoto({ key: wikiTitle, url: page?.thumbnail?.source || null, article: page?.canonicalurl || null });
-      } catch { if (active) setPhoto({ key: wikiTitle, url: null, article: null }); }
-      finally { window.clearTimeout(timeoutId); }
+        const requestUrl = new URL(placePhotoApiUrl);
+        requestUrl.searchParams.set("place", place);
+        requestUrl.searchParams.set("city", city);
+        const response = await fetch(requestUrl.toString(), { signal: controller.signal });
+        const data = await response.json() as { url?: string; source?: string; error?: string };
+        if (!response.ok || !data.url) throw new Error(data.error || "photo unavailable");
+        if (active) setPhoto({ key: photoKey, url: data.url, article: amapRoute, source: data.source || "高德地图" });
+      } catch {
+        if (active) setPhoto({ key: photoKey, url: null, article: null });
+      } finally {
+        window.clearTimeout(timeoutId);
+      }
     })();
-    return () => { active = false; window.clearTimeout(timeoutId); controller.abort(); };
-  }, [open, wikiTitle, place, city]);
+    return () => {
+      active = false;
+      window.clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, [open, place, city, photoKey, amapRoute]);
 
   return <article className={`overflow-hidden rounded-[24px] border bg-white transition-all ${open ? "border-[#91a994] shadow-[0_16px_36px_rgba(23,60,50,.1)]" : "border-[#dce2dc] hover:border-[#aabdae] hover:shadow-[0_8px_24px_rgba(23,60,50,.06)]"}`}>
     <div className="flex gap-3 p-4 sm:gap-5 sm:p-5">
@@ -239,13 +240,13 @@ function ActivityCard({ item, dayNumber, city, fallbackImage, onUpdate, onRemove
       </div>
     </div>
     {open && <div id={`place-${dayNumber}-${item.id}`} className="grid gap-5 border-t border-[#e5ebe5] bg-[#f8faf6] p-4 sm:p-5 md:grid-cols-[minmax(0,.9fr)_minmax(0,1.1fr)]">
-      <div className="relative h-48 overflow-hidden rounded-2xl bg-[#dce6db] sm:h-56"><img src={photoUrl || fallbackImage} alt={photoUrl ? `${place}及周边的照片` : `${city}目的地参考图`} onError={() => { if (photoUrl) setPhoto({ key: wikiTitle, url: null, article: null }); }} className="h-full w-full object-cover" /><div className="absolute inset-x-3 bottom-3 flex items-center justify-between gap-2"><span className="rounded-full bg-[#10291f]/75 px-3 py-1.5 text-xs text-white backdrop-blur">{photoUrl ? "地点及周边 · 维基百科" : photoReady ? "目的地参考图" : "正在查找地点照片"}</span><a href={photoSearchUrl} target="_blank" rel="noopener noreferrer" className="rounded-full bg-white/90 px-3 py-1.5 text-xs font-semibold text-[#173c32] shadow-sm backdrop-blur">搜索地点图片</a></div></div>
+      <div className="relative h-48 overflow-hidden rounded-2xl bg-[#dce6db] sm:h-56"><img src={photoUrl || fallbackImage} alt={photoUrl ? `${place}及周边的照片` : `${city}目的地参考图`} onError={() => { if (photoUrl) setPhoto({ key: photoKey, url: null, article: null }); }} className="h-full w-full object-cover" /><div className="absolute inset-x-3 bottom-3 flex items-center justify-between gap-2"><span className="rounded-full bg-[#10291f]/75 px-3 py-1.5 text-xs text-white backdrop-blur">{photoUrl ? `地点照片 · ${photo?.source || "高德地图"}` : photoReady ? "目的地参考图" : "正在查找地点照片"}</span><a href={photoSearchUrl} target="_blank" rel="noopener noreferrer" className="rounded-full bg-white/90 px-3 py-1.5 text-xs font-semibold text-[#173c32] shadow-sm backdrop-blur">搜索地点图片</a></div></div>
       <div className="min-w-0"><p className="text-xs font-semibold uppercase tracking-[.16em] text-[#688071]">Place details</p><div className="mt-2 flex items-center gap-2"><MapPin className="size-4 shrink-0 text-[#387257]" />{place ? <a href={googleRoute} target="_blank" rel="noopener noreferrer" className="min-w-0 truncate text-lg font-semibold text-[#173c32] underline decoration-[#a3c5a6] underline-offset-4 hover:decoration-[#173c32]" title={`导航到${place}`}>{place}<ExternalLink className="ml-1 inline size-3.5" /></a> : <span className="text-sm text-[#718078]">填写地点后可直接导航</span>}</div><p className="mt-1 text-sm text-[#718078]">{featured && item.place === undefined ? featured.area : city}</p>
         <label className="mt-4 block text-xs font-medium text-[#60746b]">具体地点<input value={item.place ?? featured?.name ?? item.title} onChange={(event) => onUpdate(dayNumber, item.id, { place: event.target.value })} placeholder="例如：根津美术馆" className="mt-1.5 h-10 w-full rounded-xl border border-[#d4dfd4] bg-white px-3 text-sm text-[#15231e] outline-none focus:border-[#387257]" /></label>
         <label className="mt-3 block text-xs font-medium text-[#60746b]">地点与行程备注<input value={item.detail} onChange={(event) => onUpdate(dayNumber, item.id, { detail: event.target.value })} placeholder="交通、预约或其他提醒" className="mt-1.5 h-10 w-full rounded-xl border border-[#d4dfd4] bg-white px-3 text-sm text-[#15231e] outline-none focus:border-[#387257]" /></label>
         <label className="mt-3 flex items-center gap-2 text-xs font-medium text-[#60746b]">预估费用 ¥<input type="number" min="0" value={item.cost} onChange={(event) => onUpdate(dayNumber, item.id, { cost: Math.max(0, Number(event.target.value) || 0) })} className="w-28 rounded-xl border border-[#d4dfd4] bg-white px-3 py-2 text-sm text-[#15231e] outline-none focus:border-[#387257]" /></label>
         {place && <div className="mt-4 flex flex-wrap gap-2"><a href={googleRoute} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-full bg-[#173c32] px-4 py-2.5 text-xs font-semibold text-white hover:bg-[#285a49]"><Navigation className="size-3.5" /> Google 路线</a><a href={appleRoute} target="_blank" rel="noopener noreferrer" className="rounded-full border border-[#cbd9cd] bg-white px-4 py-2.5 text-xs font-semibold text-[#173c32] hover:border-[#173c32]">Apple 地图</a><a href={amapRoute} target="_blank" rel="noopener noreferrer" className="rounded-full border border-[#cbd9cd] bg-white px-4 py-2.5 text-xs font-semibold text-[#173c32] hover:border-[#173c32]">高德地图</a></div>}
-        {photoUrl && photo?.article && <a href={photo.article} target="_blank" rel="noopener noreferrer" className="mt-4 inline-block text-xs text-[#718078] underline underline-offset-2">查看照片来源</a>}
+        {photoUrl && photo?.article && <a href={photo.article} target="_blank" rel="noopener noreferrer" className="mt-4 inline-block text-xs text-[#718078] underline underline-offset-2">在高德地图查看地点</a>}
       </div>
     </div>}
   </article>;
