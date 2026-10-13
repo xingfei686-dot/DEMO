@@ -2,7 +2,7 @@
 
 > 让 AI 生成的不只是“看起来不错”的旅游攻略，而是一份可以编辑、调整、导航和管理预算的可执行行程。
 
-[在线体验](https://xingfei686-dot.github.io/DEMO/) · [查看核心产品代码](./app/page.tsx)
+[在线体验](https://xingfei686-dot.github.io/DEMO/?v=20261013-amap) · [产品需求文档 PRD](./docs/PRD.md) · [查看核心产品代码](./app/page.tsx)
 
 ![GoTrip 旅行视觉](./public/hero.webp)
 
