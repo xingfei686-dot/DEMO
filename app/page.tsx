@@ -67,7 +67,7 @@ function dayRouteUrl(day: Day, city: string) {
 }
 
 const assetPath = (file: string) => `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/${file}`;
-const doubaoApiUrl = "https://gotrip-doubao-api.xingfei686.workers.dev/api/chat";
+const doubaoApiUrl = "https://s68pp1b4tb69l0tuft5os.apigateway-cn-beijing.volceapi.com/api/chat";
 
 function parseAiPlan(value: string): { days: Day[]; summary: string } {
   const clean = value.replace(/```json|\```/gi, "").trim();
