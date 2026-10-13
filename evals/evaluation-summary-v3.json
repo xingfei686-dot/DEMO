@@ -1,0 +1,951 @@
+{
+  "generatedAt": "2026-10-13T08:31:23.935Z",
+  "methodology": "Same 30 fixed cases; V1 outputs reused from baseline; one V3 generation per case; deterministic structure/budget; rubric judge plus manual spot-check required",
+  "v1": {
+    "sampleSize": 30,
+    "requestSuccessRate": 1,
+    "parseSuccessRate": 0.8333333333333334,
+    "structureSuccessRate": 0.7333333333333333,
+    "budgetComplianceRate": 0.6666666666666666,
+    "usableRate": 0.5333333333333333,
+    "averageTotalScore": 7.2,
+    "averagePlaceScore": 1.4333333333333333,
+    "averageRouteScore": 1.3333333333333333,
+    "averageWeatherScore": 1.5333333333333334,
+    "averageLatencyMs": 7738.633333333333
+  },
+  "v3": {
+    "sampleSize": 30,
+    "requestSuccessRate": 1,
+    "parseSuccessRate": 0.9666666666666667,
+    "structureSuccessRate": 0.9333333333333333,
+    "budgetComplianceRate": 0.7333333333333333,
+    "usableRate": 0.5666666666666667,
+    "averageTotalScore": 7.4,
+    "averagePlaceScore": 1.3,
+    "averageRouteScore": 1.0666666666666667,
+    "averageWeatherScore": 1.5666666666666667,
+    "averageLatencyMs": 5111.066666666667
+  },
+  "cases": [
+    {
+      "id": "BASIC-01",
+      "split": "dev",
+      "category": "basic",
+      "v1": {
+        "structureScore": 2,
+        "budgetScore": 2,
+        "placeScore": 2,
+        "routeScore": 2,
+        "weatherScore": 2,
+        "totalScore": 10,
+        "usable": true,
+        "activityCost": 360,
+        "issues": []
+      },
+      "v3": {
+        "structureScore": 2,
+        "budgetScore": 2,
+        "placeScore": 1,
+        "routeScore": 0,
+        "weatherScore": 1,
+        "totalScore": 6,
+        "usable": false,
+        "activityCost": 300,
+        "issues": [
+          "V3第1天17:00安排西岸美术馆，与当日行程外滩-武康路无合理交通衔接，远距不合理；V3第2天16:30安排外滩夜景，与当日文博-愚园路行程无合理交通衔接，绕路不合理；V3第1天12:00安排武康路咖啡馆，未明确是否适配当日天气（晴）的户外座位安排，部分遗漏"
+        ]
+      }
+    },
+    {
+      "id": "BASIC-02",
+      "split": "dev",
+      "category": "basic",
+      "v1": {
+        "structureScore": 2,
+        "budgetScore": 2,
+        "placeScore": 2,
+        "routeScore": 2,
+        "weatherScore": 2,
+        "totalScore": 10,
+        "usable": true,
+        "activityCost": 507,
+        "issues": []
+      },
+      "v3": {
+        "structureScore": 0,
+        "budgetScore": 0,
+        "placeScore": 0,
+        "routeScore": 0,
+        "weatherScore": 0,
+        "totalScore": 0,
+        "usable": false,
+        "activityCost": null,
+        "issues": [
+          "SyntaxError: Expected ':' after property name in JSON at position 546 (line 1 column 547)",
+          "V3方案为空"
+        ]
+      }
+    },
+    {
+      "id": "BASIC-03",
+      "split": "dev",
+      "category": "basic",
+      "v1": {
+        "structureScore": 2,
+        "budgetScore": 0,
+        "placeScore": 2,
+        "routeScore": 1,
+        "weatherScore": 2,
+        "totalScore": 7,
+        "usable": false,
+        "activityCost": 13800,
+        "issues": [
+          "第1天安排从浅草到筑地的行程，跨区较远，当日行程存在一次远距移动；第4天涩谷天空安排日间时段，未利用多云天气的观景优势"
+        ]
+      },
+      "v3": {
+        "structureScore": 2,
+        "budgetScore": 2,
+        "placeScore": 1,
+        "routeScore": 0,
+        "weatherScore": 2,
+        "totalScore": 7,
+        "usable": false,
+        "activityCost": 1000,
+        "issues": [
+          "未明确标注各地点所属东京具体行政区，部分地点信息模糊；第1天安排从浅草到清澄白河的行程，当日跨区移动，多次行程安排不合理"
+        ]
+      }
+    },
+    {
+      "id": "BASIC-04",
+      "split": "dev",
+      "category": "basic",
+      "v1": {
+        "structureScore": 2,
+        "budgetScore": 2,
+        "placeScore": 2,
+        "routeScore": 2,
+        "weatherScore": 2,
+        "totalScore": 10,
+        "usable": true,
+        "activityCost": 61,
+        "issues": []
+      },
+      "v3": {
+        "structureScore": 2,
+        "budgetScore": 2,
+        "placeScore": 2,
+        "routeScore": 1,
+        "weatherScore": 2,
+        "totalScore": 9,
+        "usable": true,
+        "activityCost": 360,
+        "issues": [
+          "第1天阿尔法玛观景台到贝伦区蛋挞店的步行距离过远，不符合同日集中可执行的要求"
+        ]
+      }
+    },
+    {
+      "id": "BASIC-05",
+      "split": "holdout",
+      "category": "basic",
+      "v1": {
+        "structureScore": 2,
+        "budgetScore": 2,
+        "placeScore": 2,
+        "routeScore": 2,
+        "weatherScore": 2,
+        "totalScore": 10,
+        "usable": true,
+        "activityCost": 880,
+        "issues": [
+          "无"
+        ]
+      },
+      "v3": {
+        "structureScore": 2,
+        "budgetScore": 2,
+        "placeScore": 1,
+        "routeScore": 1,
+        "weatherScore": 2,
+        "totalScore": 8,
+        "usable": true,
+        "activityCost": 1880,
+        "issues": [
+          "第4天安排春熙路，未在给定的成都目标景点列表中，且偏离川菜、茶馆、社区体验的偏好"
+        ]
+      }
+    },
+    {
+      "id": "BASIC-06",
+      "split": "holdout",
+      "category": "basic",
+      "v1": {
+        "structureScore": 2,
+        "budgetScore": 2,
+        "placeScore": 2,
+        "routeScore": 1,
+        "weatherScore": 2,
+        "totalScore": 9,
+        "usable": true,
+        "activityCost": 2970,
+        "issues": [
+          "第2天重复安排新加坡科学中心，当日存在绕路情况"
+        ]
+      },
+      "v3": {
+        "structureScore": 2,
+        "budgetScore": 0,
+        "placeScore": 2,
+        "routeScore": 2,
+        "weatherScore": 2,
+        "totalScore": 8,
+        "usable": false,
+        "activityCost": 5790,
+        "issues": [
+          "无"
+        ]
+      }
+    },
+    {
+      "id": "BUDGET-01",
+      "split": "dev",
+      "category": "budget",
+      "v1": {
+        "structureScore": 0,
+        "budgetScore": 0,
+        "placeScore": 0,
+        "routeScore": 0,
+        "weatherScore": 0,
+        "totalScore": 0,
+        "usable": false,
+        "activityCost": null,
+        "issues": [
+          "SyntaxError: Expected ':' after property name in JSON at position 686 (line 1 column 687)",
+          "V1方案为空，无法进行评分"
+        ]
+      },
+      "v3": {
+        "structureScore": 2,
+        "budgetScore": 2,
+        "placeScore": 2,
+        "routeScore": 2,
+        "weatherScore": 2,
+        "totalScore": 10,
+        "usable": true,
+        "activityCost": 150,
+        "issues": []
+      }
+    },
+    {
+      "id": "BUDGET-02",
+      "split": "dev",
+      "category": "budget",
+      "v1": {
+        "structureScore": 2,
+        "budgetScore": 2,
+        "placeScore": 2,
+        "routeScore": 2,
+        "weatherScore": 2,
+        "totalScore": 10,
+        "usable": true,
+        "activityCost": 570,
+        "issues": [
+          "无"
+        ]
+      },
+      "v3": {
+        "structureScore": 2,
+        "budgetScore": 2,
+        "placeScore": 1,
+        "routeScore": 1,
+        "weatherScore": 2,
+        "totalScore": 8,
+        "usable": true,
+        "activityCost": 1150,
+        "issues": [
+          "第3、4天包含收费展馆，不符合用户减少收费展馆的偏好"
+        ]
+      }
+    },
+    {
+      "id": "BUDGET-03",
+      "split": "dev",
+      "category": "budget",
+      "v1": {
+        "structureScore": 2,
+        "budgetScore": 2,
+        "placeScore": 2,
+        "routeScore": 2,
+        "weatherScore": 2,
+        "totalScore": 10,
+        "usable": true,
+        "activityCost": 880,
+        "issues": []
+      },
+      "v3": {
+        "structureScore": 2,
+        "budgetScore": 1,
+        "placeScore": 0,
+        "routeScore": 0,
+        "weatherScore": 0,
+        "totalScore": 3,
+        "usable": false,
+        "activityCost": 1980,
+        "issues": [
+          "1. 地点真实性：大雁塔北广场、大唐不夜城、西安城墙、永兴坊、小雁塔、西安博物院、回民街均不属于西安指定历史偏好的核心历史景点，且部分地点未明确标注为西安辖区内，存在地点错误；2. 路线合理性：每日安排多景点跨区，如第1天从陕西历史博物馆到大雁塔北广场再到大唐不夜城，跨区且非同日集中，第2天从西安城墙骑行到永兴坊，距离较远，存在多次不合理；3. 天气适配：未结合每日天气安排活动，未提供恶劣天气备选方案，忽略天气适配要求"
+        ]
+      }
+    },
+    {
+      "id": "BUDGET-04",
+      "split": "dev",
+      "category": "budget",
+      "v1": {
+        "structureScore": 2,
+        "budgetScore": 2,
+        "placeScore": 1,
+        "routeScore": 1,
+        "weatherScore": 1,
+        "totalScore": 7,
+        "usable": false,
+        "activityCost": 7740,
+        "issues": [
+          "第4天安排库塔海滩海鲜晚餐，库塔与乌鲁瓦图距离较远，当日行程绕路；第5天安排库塔海滩冲浪，与当日水明漾街区行程无关联，路线合理性不足"
+        ]
+      },
+      "v3": {
+        "structureScore": 2,
+        "budgetScore": 2,
+        "placeScore": 2,
+        "routeScore": 2,
+        "weatherScore": 2,
+        "totalScore": 10,
+        "usable": true,
+        "activityCost": 7360,
+        "issues": []
+      }
+    },
+    {
+      "id": "BUDGET-05",
+      "split": "holdout",
+      "category": "budget",
+      "v1": {
+        "structureScore": 2,
+        "budgetScore": 0,
+        "placeScore": 2,
+        "routeScore": 2,
+        "weatherScore": 2,
+        "totalScore": 8,
+        "usable": false,
+        "activityCost": 560,
+        "issues": [
+          "无"
+        ]
+      },
+      "v3": {
+        "structureScore": 2,
+        "budgetScore": 2,
+        "placeScore": 1,
+        "routeScore": 1,
+        "weatherScore": 2,
+        "totalScore": 8,
+        "usable": true,
+        "activityCost": 420,
+        "issues": [
+          "第1天未覆盖天坛公园，第2天未覆盖故宫博物院，两处目标景点缺失"
+        ]
+      }
+    },
+    {
+      "id": "BUDGET-06",
+      "split": "holdout",
+      "category": "budget",
+      "v1": {
+        "structureScore": 2,
+        "budgetScore": 2,
+        "placeScore": 2,
+        "routeScore": 2,
+        "weatherScore": 2,
+        "totalScore": 10,
+        "usable": true,
+        "activityCost": 174,
+        "issues": []
+      },
+      "v3": {
+        "structureScore": 2,
+        "budgetScore": 2,
+        "placeScore": 2,
+        "routeScore": 1,
+        "weatherScore": 2,
+        "totalScore": 9,
+        "usable": true,
+        "activityCost": 548,
+        "issues": [
+          "第2天贝伦蛋挞店标注为热罗尼莫斯修道院旁，与贝伦区寻踪路线中发现者纪念碑步行10分钟的安排，当日贝伦区内部路线存在绕路情况"
+        ]
+      }
+    },
+    {
+      "id": "WEATHER-01",
+      "split": "dev",
+      "category": "weather",
+      "v1": {
+        "structureScore": 2,
+        "budgetScore": 2,
+        "placeScore": 2,
+        "routeScore": 1,
+        "weatherScore": 2,
+        "totalScore": 9,
+        "usable": true,
+        "activityCost": 1080,
+        "issues": [
+          "第1天安排西岸美术馆与浦东美术馆跨区，存在远距绕路问题"
+        ]
+      },
+      "v3": {
+        "structureScore": 2,
+        "budgetScore": 2,
+        "placeScore": 1,
+        "routeScore": 1,
+        "weatherScore": 2,
+        "totalScore": 8,
+        "usable": true,
+        "activityCost": 1580,
+        "issues": [
+          "第1天安排上海博物馆东馆、浦东美术馆、西岸美术馆跨区，存在远距绕路问题；第3天重复安排西岸美术馆"
+        ]
+      }
+    },
+    {
+      "id": "WEATHER-02",
+      "split": "dev",
+      "category": "weather",
+      "v1": {
+        "structureScore": 2,
+        "budgetScore": 2,
+        "placeScore": 2,
+        "routeScore": 2,
+        "weatherScore": 2,
+        "totalScore": 10,
+        "usable": true,
+        "activityCost": 472,
+        "issues": []
+      },
+      "v3": {
+        "structureScore": 2,
+        "budgetScore": 2,
+        "placeScore": 1,
+        "routeScore": 1,
+        "weatherScore": 1,
+        "totalScore": 7,
+        "usable": false,
+        "activityCost": 592,
+        "issues": [
+          "第1天行程存在折返（故宫→故宫→国博），第2天行程存在绕路（国博→首都博物馆→景山公园）"
+        ]
+      }
+    },
+    {
+      "id": "WEATHER-03",
+      "split": "dev",
+      "category": "weather",
+      "v1": {
+        "structureScore": 0,
+        "budgetScore": 0,
+        "placeScore": 0,
+        "routeScore": 0,
+        "weatherScore": 0,
+        "totalScore": 0,
+        "usable": false,
+        "activityCost": null,
+        "issues": [
+          "SyntaxError: Expected ':' after property name in JSON at position 429 (line 1 column 430)",
+          "v1不存在，无法评测"
+        ]
+      },
+      "v3": {
+        "structureScore": 2,
+        "budgetScore": 2,
+        "placeScore": 2,
+        "routeScore": 1,
+        "weatherScore": 2,
+        "totalScore": 9,
+        "usable": true,
+        "activityCost": 840,
+        "issues": [
+          "第2天森美术馆与涩谷站的路线存在绕路，森美术馆位于六本木，从森美术馆步行至涩谷站约20分钟，与描述的10分钟不符；第3天浅草寺周边用餐安排与东京站周边游览的路线存在不合理折返，东京站至浅草寺往返耗时较长"
+        ]
+      }
+    },
+    {
+      "id": "WEATHER-04",
+      "split": "dev",
+      "category": "weather",
+      "v1": {
+        "structureScore": 2,
+        "budgetScore": 0,
+        "placeScore": 2,
+        "routeScore": 2,
+        "weatherScore": 2,
+        "totalScore": 8,
+        "usable": false,
+        "activityCost": 2380,
+        "issues": [
+          "无"
+        ]
+      },
+      "v3": {
+        "structureScore": 2,
+        "budgetScore": 1,
+        "placeScore": 1,
+        "routeScore": 1,
+        "weatherScore": 1,
+        "totalScore": 6,
+        "usable": false,
+        "activityCost": 1900,
+        "issues": [
+          "第1天安排哈尔滨博物馆，该馆位于松北区，与当日行程的黑龙江省博物馆、中央大街距离较远，且未明确说明交通衔接方式；第2天安排圣索菲亚教堂、中央大街，与当日室内活动的哈尔滨博物馆、冰雪大世界室内馆距离较远，存在绕路情况；天气适配未针对大风天明确提供更灵活的室内备选方案"
+        ]
+      }
+    },
+    {
+      "id": "WEATHER-05",
+      "split": "holdout",
+      "category": "weather",
+      "v1": {
+        "structureScore": 2,
+        "budgetScore": 2,
+        "placeScore": 2,
+        "routeScore": 2,
+        "weatherScore": 2,
+        "totalScore": 10,
+        "usable": true,
+        "activityCost": 1620,
+        "issues": []
+      },
+      "v3": {
+        "structureScore": 2,
+        "budgetScore": 2,
+        "placeScore": 2,
+        "routeScore": 1,
+        "weatherScore": 1,
+        "totalScore": 8,
+        "usable": true,
+        "activityCost": 2380,
+        "issues": [
+          "第2天安排2次用餐地点步行/地铁距离较远，部分时段需户外奔波；第3天安排星耀樟宜往返，存在绕路情况"
+        ]
+      }
+    },
+    {
+      "id": "WEATHER-06",
+      "split": "holdout",
+      "category": "weather",
+      "v1": {
+        "structureScore": 2,
+        "budgetScore": 0,
+        "placeScore": 1,
+        "routeScore": 1,
+        "weatherScore": 1,
+        "totalScore": 5,
+        "usable": false,
+        "activityCost": 5300,
+        "issues": [
+          "V1第3天安排从乌布到乌鲁瓦图的跨区域行程，当日存在雷阵雨，跨区域移动风险较高，不符合松弛慢游风格；V1第2天安排乌布德格拉朗梯田户外游览，中雨天气下存在安全隐患，且未明确提醒风险"
+        ]
+      },
+      "v3": {
+        "structureScore": 2,
+        "budgetScore": 2,
+        "placeScore": 2,
+        "routeScore": 2,
+        "weatherScore": 2,
+        "totalScore": 10,
+        "usable": true,
+        "activityCost": 1010,
+        "issues": []
+      }
+    },
+    {
+      "id": "SPECIAL-01",
+      "split": "dev",
+      "category": "special",
+      "v1": {
+        "structureScore": 2,
+        "budgetScore": 2,
+        "placeScore": 2,
+        "routeScore": 2,
+        "weatherScore": 2,
+        "totalScore": 10,
+        "usable": true,
+        "activityCost": 1170,
+        "issues": [
+          "网师园日场转夜游的安排未明确是否符合老人休息需求，未说明夜游是否会增加步行或疲劳度"
+        ]
+      },
+      "v3": {
+        "structureScore": 2,
+        "budgetScore": 0,
+        "placeScore": 1,
+        "routeScore": 1,
+        "weatherScore": 1,
+        "totalScore": 5,
+        "usable": false,
+        "activityCost": 2220,
+        "issues": [
+          "第1天拙政园与平江路安排重复，路线存在绕路；第3天安排金鸡湖步道漫步不符合老人减少步行的需求，且未明确金鸡湖步道是否为平路"
+        ]
+      }
+    },
+    {
+      "id": "SPECIAL-02",
+      "split": "dev",
+      "category": "special",
+      "v1": {
+        "structureScore": 2,
+        "budgetScore": 2,
+        "placeScore": 1,
+        "routeScore": 1,
+        "weatherScore": 2,
+        "totalScore": 8,
+        "usable": true,
+        "activityCost": 2190,
+        "issues": [
+          "第2天上海儿童博物馆地址为上海市长宁区宋园路61号，V1标注为浦东新区，地点地址错误；第3天上海天文馆位于浦东新区临港大道，V1标注的活动安排中，从浦东新区世纪大道附近的上海科技馆前往临港大道的上海天文馆为远距移动，不符合同日集中可执行的要求"
+        ]
+      },
+      "v3": {
+        "structureScore": 2,
+        "budgetScore": 1,
+        "placeScore": 2,
+        "routeScore": 2,
+        "weatherScore": 2,
+        "totalScore": 9,
+        "usable": true,
+        "activityCost": 2280,
+        "issues": [
+          "无"
+        ]
+      }
+    },
+    {
+      "id": "SPECIAL-03",
+      "split": "dev",
+      "category": "special",
+      "v1": {
+        "structureScore": 2,
+        "budgetScore": 2,
+        "placeScore": 1,
+        "routeScore": 1,
+        "weatherScore": 2,
+        "totalScore": 8,
+        "usable": true,
+        "activityCost": 960,
+        "issues": [
+          "V1第3天新增未在测试偏好中提及的南锣鼓巷、故宫博物院、前门大街，与测试指定places不符"
+        ]
+      },
+      "v3": {
+        "structureScore": 2,
+        "budgetScore": 2,
+        "placeScore": 1,
+        "routeScore": 1,
+        "weatherScore": 2,
+        "totalScore": 8,
+        "usable": true,
+        "activityCost": 1820,
+        "issues": [
+          "V3第1天未安排测试指定的首都博物馆，第3天未安排测试指定的首都博物馆，与测试指定places不符"
+        ]
+      }
+    },
+    {
+      "id": "SPECIAL-04",
+      "split": "dev",
+      "category": "special",
+      "v1": {
+        "structureScore": 2,
+        "budgetScore": 2,
+        "placeScore": 2,
+        "routeScore": 2,
+        "weatherScore": 2,
+        "totalScore": 10,
+        "usable": true,
+        "activityCost": 868,
+        "issues": [
+          "无"
+        ]
+      },
+      "v3": {
+        "structureScore": 2,
+        "budgetScore": 2,
+        "placeScore": 1,
+        "routeScore": 1,
+        "weatherScore": 1,
+        "totalScore": 7,
+        "usable": false,
+        "activityCost": 1580,
+        "issues": [
+          "第3天行程包含返程准备，未贴合3日游收尾的核心需求；部分地点未明确具体地址，存在模糊性"
+        ]
+      }
+    },
+    {
+      "id": "SPECIAL-05",
+      "split": "holdout",
+      "category": "special",
+      "v1": {
+        "structureScore": 0,
+        "budgetScore": 0,
+        "placeScore": 0,
+        "routeScore": 0,
+        "weatherScore": 0,
+        "totalScore": 0,
+        "usable": false,
+        "activityCost": null,
+        "issues": [
+          "SyntaxError: Expected ':' after property name in JSON at position 327 (line 1 column 328)",
+          "V1为null，无有效评测内容"
+        ]
+      },
+      "v3": {
+        "structureScore": 2,
+        "budgetScore": 2,
+        "placeScore": 2,
+        "routeScore": 2,
+        "weatherScore": 2,
+        "totalScore": 10,
+        "usable": true,
+        "activityCost": 1400,
+        "issues": []
+      }
+    },
+    {
+      "id": "SPECIAL-06",
+      "split": "holdout",
+      "category": "special",
+      "v1": {
+        "structureScore": 0,
+        "budgetScore": 0,
+        "placeScore": 0,
+        "routeScore": 0,
+        "weatherScore": 0,
+        "totalScore": 0,
+        "usable": false,
+        "activityCost": null,
+        "issues": [
+          "SyntaxError: Expected ':' after property name in JSON at position 321 (line 1 column 322)",
+          "v1无内容无法评测"
+        ]
+      },
+      "v3": {
+        "structureScore": 2,
+        "budgetScore": 2,
+        "placeScore": 2,
+        "routeScore": 1,
+        "weatherScore": 2,
+        "totalScore": 9,
+        "usable": true,
+        "activityCost": 2500,
+        "issues": [
+          "第1天安排10:00东京站周边漫步，与用户第一天22:00抵达的条件冲突；第3天08:00清澄白河闲逛后10:00前往成田机场，时间紧张且清澄白河至东京站的交通耗时未预留，属于一次远距衔接不合理"
+        ]
+      }
+    },
+    {
+      "id": "EDGE-01",
+      "split": "dev",
+      "category": "edge",
+      "v1": {
+        "structureScore": 0,
+        "budgetScore": 0,
+        "placeScore": 0,
+        "routeScore": 0,
+        "weatherScore": 0,
+        "totalScore": 0,
+        "usable": false,
+        "activityCost": null,
+        "issues": [
+          "SyntaxError: Expected ',' or ']' after array element in JSON at position 1028 (line 1 column 1029)",
+          "v1无内容，无法评测"
+        ]
+      },
+      "v3": {
+        "structureScore": 2,
+        "budgetScore": 2,
+        "placeScore": 1,
+        "routeScore": 1,
+        "weatherScore": 2,
+        "totalScore": 8,
+        "usable": true,
+        "activityCost": 150,
+        "issues": [
+          "第2天凤凰山公园徒步、大凌河观景未明确是否属朝阳市域内，存在地点歧义；大凌河景区与凤凰山公园间无合理衔接安排，存在绕路风险"
+        ]
+      }
+    },
+    {
+      "id": "EDGE-02",
+      "split": "dev",
+      "category": "edge",
+      "v1": {
+        "structureScore": 1,
+        "budgetScore": 2,
+        "placeScore": 2,
+        "routeScore": 2,
+        "weatherScore": 2,
+        "totalScore": 9,
+        "usable": false,
+        "activityCost": 350,
+        "issues": [
+          "第1天活动数量错误"
+        ]
+      },
+      "v3": {
+        "structureScore": 1,
+        "budgetScore": 2,
+        "placeScore": 1,
+        "routeScore": 1,
+        "weatherScore": 2,
+        "totalScore": 7,
+        "usable": false,
+        "activityCost": 420,
+        "issues": [
+          "第1天活动数量错误",
+          "V3中09:00安排赴孤山馆区，与用户要求09:00到达后直接游玩西湖的时间顺序不符；V3中孤山馆区参观安排10:00开始，未明确是否符合预约要求"
+        ]
+      }
+    },
+    {
+      "id": "EDGE-03",
+      "split": "dev",
+      "category": "edge",
+      "v1": {
+        "structureScore": 1,
+        "budgetScore": 2,
+        "placeScore": 1,
+        "routeScore": 1,
+        "weatherScore": 2,
+        "totalScore": 7,
+        "usable": false,
+        "activityCost": 1334,
+        "issues": [
+          "第6天活动数量错误",
+          "第4天跨区前往北碚的重庆自然博物馆，当日其余活动集中在渝中区、江北区，路线存在绕路；第7天跨区前往歌乐山、南山，当日其余活动集中在沙坪坝区，路线存在绕路；第3天、第5天重复安排重庆中国三峡博物馆，存在活动重复"
+        ]
+      },
+      "v3": {
+        "structureScore": 2,
+        "budgetScore": 2,
+        "placeScore": 0,
+        "routeScore": 0,
+        "weatherScore": 0,
+        "totalScore": 4,
+        "usable": false,
+        "activityCost": 320,
+        "issues": [
+          "7天内每日均重复安排相同的3个地点，严重违反避免重复的要求；每日活动均集中在渝中区，未覆盖测试要求的全部目标景点（磁器口古镇、湖广会馆、鹅岭二厂等）；第1天、第3天、第6天、第7天均安排湖广会馆夜游/夜景，第2天、第5天均安排李子坝观景台，存在大量重复活动；天气适配未针对小雨安排室内活动，且多次安排夜间户外游览"
+        ]
+      }
+    },
+    {
+      "id": "EDGE-04",
+      "split": "dev",
+      "category": "edge",
+      "v1": {
+        "structureScore": 1,
+        "budgetScore": 0,
+        "placeScore": 1,
+        "routeScore": 1,
+        "weatherScore": 2,
+        "totalScore": 5,
+        "usable": false,
+        "activityCost": 860,
+        "issues": [
+          "第1天活动数量错误",
+          "第2天活动数量错误",
+          "第3天活动数量错误",
+          "第1天安排8个景点，不符合用户要求的松弛慢游节奏；第2天安排7个景点，第3天安排7个景点，日均超量；活动总预算280+260+270+30+20=860元，远超活动预算400元"
+        ]
+      },
+      "v3": {
+        "structureScore": 2,
+        "budgetScore": 0,
+        "placeScore": 2,
+        "routeScore": 2,
+        "weatherScore": 2,
+        "totalScore": 8,
+        "usable": false,
+        "activityCost": 500,
+        "issues": [
+          "无"
+        ]
+      }
+    },
+    {
+      "id": "EDGE-05",
+      "split": "holdout",
+      "category": "edge",
+      "v1": {
+        "structureScore": 2,
+        "budgetScore": 2,
+        "placeScore": 1,
+        "routeScore": 1,
+        "weatherScore": 2,
+        "totalScore": 8,
+        "usable": true,
+        "activityCost": 645,
+        "issues": [
+          "第2天安排阿尔山国家森林公园深度游，当日需往返市区与森林公园，存在一次远距交通，不符合同日集中可执行要求"
+        ]
+      },
+      "v3": {
+        "structureScore": 2,
+        "budgetScore": 0,
+        "placeScore": 1,
+        "routeScore": 1,
+        "weatherScore": 1,
+        "totalScore": 5,
+        "usable": false,
+        "activityCost": 1760,
+        "issues": [
+          "第1天安排阿尔山博物馆、五里泉、阿尔山火车站，存在一次步行10分钟的远距移动，不符合同日集中可执行要求；第3天安排阿尔山温泉体验、特色餐饮体验、市区广场散步，未明确是否适配晴好天气的具体安排"
+        ]
+      }
+    },
+    {
+      "id": "EDGE-06",
+      "split": "holdout",
+      "category": "edge",
+      "v1": {
+        "structureScore": 2,
+        "budgetScore": 2,
+        "placeScore": 2,
+        "routeScore": 2,
+        "weatherScore": 0,
+        "totalScore": 8,
+        "usable": false,
+        "activityCost": 1240,
+        "issues": [
+          "未对天气不可用情况提供适配方案，忽略天气适配要求"
+        ]
+      },
+      "v3": {
+        "structureScore": 2,
+        "budgetScore": 2,
+        "placeScore": 1,
+        "routeScore": 1,
+        "weatherScore": 2,
+        "totalScore": 8,
+        "usable": true,
+        "activityCost": 1150,
+        "issues": [
+          "部分活动地点仅标注城市区域，未提供具体可信地址"
+        ]
+      }
+    }
+  ]
+}
