@@ -6,7 +6,7 @@
 - **更新日期：**2026-10-13
 - **产品状态：**MVP 已上线
 - **项目角色：**个人项目，独立完成产品定义、需求分析、AI 方案、交互设计、前端开发与部署
-- **在线体验：**[GoTrip Demo](https://xingfei686-dot.github.io/DEMO/?v=20261013-amap)
+- **在线体验：**[GoTrip Demo](https://xingfei686-dot.github.io/DEMO/?v=20261013-amap)\n- **作品集页面：**[AI 产品案例展示](https://xingfei686-dot.github.io/DEMO/prd/)
 - **项目仓库：**[xingfei686-dot/DEMO](https://github.com/xingfei686-dot/DEMO)
 
 ---
